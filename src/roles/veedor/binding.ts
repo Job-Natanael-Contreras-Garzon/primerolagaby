@@ -647,5 +647,13 @@ export async function bindVeedor(): Promise<void> {
   renderCargos()
   setupPhoto()
 
+  // Event listeners en campo de mesa
+  const mesaInput = document.querySelector<HTMLInputElement>('#veedor-mesa')
+  if (mesaInput) {
+    mesaInput.addEventListener('input', () => {
+      checkAllReady()
+    })
+  }
+
   console.log('✓ Veedor inicializado')
 }

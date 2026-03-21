@@ -17,7 +17,6 @@ export function loginTemplate() {
           <input id="pass" type="password" placeholder="tu contraseña" required />
 
           <button class="cta" type="submit">Entrar</button>
-          <button class="ghost-btn" data-go="/" type="button">Volver al inicio</button>
         </form>
 
         <!-- Ayuda para desarrollo -->
