@@ -445,11 +445,11 @@ export async function bindVeedor(): Promise<void> {
       btn.classList.add('is-active')
 
       if (selection === 'search') {
-        selectionSearch?.classList.add('is-active')
-        selectionManual?.classList.remove('is-active')
+        if (selectionSearch) selectionSearch.style.display = 'block'
+        if (selectionManual) selectionManual.style.display = 'none'
       } else {
-        selectionManual?.classList.add('is-active')
-        selectionSearch?.classList.remove('is-active')
+        if (selectionManual) selectionManual.style.display = 'block'
+        if (selectionSearch) selectionSearch.style.display = 'none'
       }
     })
   })

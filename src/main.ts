@@ -75,6 +75,13 @@ async function loadCatalogos() {
         estado: m.estado,
       }))
     }
+
+    // Actualizar datos globales en window
+    (window as any).colegiosMock = colegiosMock
+    (window as any).partidos = partidos
+    (window as any).cargos = cargos
+    (window as any).mesas = mesas
+
   } catch (err) {
     console.error('[Supabase] Error cargando catálogos:', err)
   }
@@ -126,7 +133,7 @@ async function isLoggedIn(): Promise<boolean> {
 async function renderRoute() {
   const route = getRoute()
   let html = ''
-  let bindingCallback: (() => void) | null = null
+  let bindingCallback: (() => Promise<void> | void) | null = null
 
   if (route === 'login') {
     html = loginTemplate()
@@ -170,9 +177,9 @@ async function renderRoute() {
 
   rootApp.innerHTML = html
 
-  // Ejecutar binding al final
+  // Ejecutar binding al final (esperando si es async)
   if (bindingCallback) {
-    bindingCallback()
+    await bindingCallback()
   }
 }
 
