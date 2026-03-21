@@ -657,7 +657,7 @@ function adminTemplate() {
     </div>
 
     <!-- MODAL: EDITAR DISTRITO -->
-    <div id="modal-edit-distrito" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div id="modal-edit-distrito" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
       <article class="card" style="width:90%;max-width:400px;padding:24px;">
         <h3>Editar Distrito</h3>
         <form id="form-edit-distrito" class="form-grid" style="margin-top:16px;">
