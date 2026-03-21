@@ -34,11 +34,11 @@ export function veedorTemplate() {
 
               <div class="selection-toggle">
                 <button type="button" class="selection-btn" data-selection="search">🔍 Buscar por nombre de colegio</button>
-                <button type="button" class="selection-btn is-active" data-selection="manual">📍 Buscar por distrito</button>
+                <button type="button" class="selection-btn" data-selection="manual">📍 Buscar por distrito</button>
               </div>
 
               <!-- Panel de búsqueda -->
-              <div id="selection-search" class="selection-panel">
+              <div id="selection-search" class="selection-panel" style="display: none;">
                 <div class="search-input-wrapper">
                   <input id="colegio-search" type="search" placeholder="Escribe el nombre de tu colegio..." />
                   <button type="button" id="colegio-search-dropdown" class="search-dropdown-btn" title="Ver todos los colegios">▼</button>
@@ -47,7 +47,7 @@ export function veedorTemplate() {
               </div>
 
               <!-- Panel manual -->
-              <div id="selection-manual" class="selection-panel is-active">
+              <div id="selection-manual" class="selection-panel" style="display: none;">
                 <div class="form-row-2">
                   <div>
                     <label for="veedor-distrito">Distrito</label>

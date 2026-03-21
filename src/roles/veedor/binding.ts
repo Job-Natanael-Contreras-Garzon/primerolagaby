@@ -151,9 +151,24 @@ export async function bindVeedor(): Promise<void> {
         .select('id, nombre, distrito_id')
         .order('nombre')
 
-      return { distritos: distritos || [], colegios: colegios || [] }
+      if (distritos && colegios) {
+        console.log('✓ Colegios cargados de Supabase:', colegios.length)
+        return { distritos: distritos || [], colegios: colegios || [] }
+      } else {
+        throw new Error('Sin datos')
+      }
     } catch (error) {
-      console.error('❌ Error cargando colegios:', error)
+      console.warn('⚠️ Supabase no disponible, usando datos locales:', error)
+      // Fallback: usar colegiosMock de window si está disponible
+      const globalColegios = (window as any).colegiosMock || []
+      const globalPartidos = (window as any).partidos || []
+      
+      if (globalColegios.length > 0) {
+        console.log('✓ Usando colegios locales:', globalColegios.length)
+        const distritos = [...new Set(globalColegios.map((c: any) => ({ id: 0, nombre: c.distrito })))]
+        return { distritos, colegios: globalColegios }
+      }
+      
       return { distritos: [], colegios: [] }
     }
   }
@@ -396,13 +411,22 @@ export async function bindVeedor(): Promise<void> {
   const btnLogout = document.querySelector<HTMLButtonElement>('#btn-logout-veedor')
   if (btnLogout) {
     btnLogout.addEventListener('click', async () => {
-      await supabase.auth.signOut()
+      try {
+        await supabase.auth.signOut()
+      } catch (err) {
+        console.error('Error al logout:', err)
+      }
       window.localStorage.removeItem('authUser')
       window.localStorage.removeItem('authRole')
       window.history.pushState({}, '', '/login')
-      // Llamar a renderRoute que debe estar disponible en window
-      const renderRoute = (window as any).renderRoute
-      if (renderRoute) renderRoute()
+      // Llamar a navigate que está disponible en window
+      const navigate = (window as any).navigate
+      if (navigate) {
+        navigate('/login')
+      } else {
+        // Fallback: recargar la página
+        window.location.href = '/login'
+      }
     })
   }
 
@@ -508,7 +532,7 @@ export async function bindVeedor(): Promise<void> {
         colegioSearchInput.value = ''
         colegioResults.innerHTML = ''
         
-        // Mostrardatos
+        // Mostrar datos
         showDataSection(`${distrito} - ${colegio}`)
       }
     })
@@ -556,6 +580,8 @@ export async function bindVeedor(): Promise<void> {
     initCamera(),
     configureSelection()
   ])
+
+  console.log('✓ Datos cargados - Colegios disponibles:', (window as any).colegiosMock?.length || 'N/A')
 
   // Renderizar cargos y candidatos
   renderCargos()
