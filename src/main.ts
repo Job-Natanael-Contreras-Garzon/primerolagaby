@@ -109,12 +109,36 @@ function navigate(path: '/login' | '/' | '/panel' | '/admin') {
 }
 
 async function isLoggedIn(): Promise<boolean> {
-  // Primary check: sesión real de Supabase Auth
+  // ⚠️ SEGURIDAD: Solo permitir acceso si hay sesión REAL en Supabase Auth
+  // NO usar fallback de localStorage (es un agujero de seguridad)
+
   const { data: sessionData } = await supabase.auth.getSession()
-  if (sessionData?.session?.user) return true
-  // Fallback modo desarrollo: verifica localStorage (cuando el login falla y usamos rol manual)
-  const role = window.localStorage.getItem('authRole')
-  return role === 'veedor' || role === 'admin' || role === 'distrito' || role === 'colegio'
+
+  if (!sessionData?.session?.user) {
+    // No hay sesión de Supabase Auth → NO permitir acceso
+    window.localStorage.removeItem('authRole')
+    return false
+  }
+
+  // Validación adicional: verificar que el usuario tenga rol en la tabla usuarios
+  const { data: userData } = await supabase
+    .from('usuarios')
+    .select('rol, activo')
+    .eq('auth_id', sessionData.session.user.id)
+    .eq('activo', true)
+    .single()
+
+  if (!userData) {
+    // Usuario no tiene rol o está desactivado → NO permitir acceso
+    window.localStorage.removeItem('authRole')
+    await supabase.auth.signOut()
+    return false
+  }
+
+  // ✅ Sesión válida y usuario activo → permitir acceso
+  // Asegurar que localStorage está sincronizado con la BD
+  window.localStorage.setItem('authRole', userData.rol)
+  return true
 }
 
 function getRoleLabel() {
@@ -260,27 +284,28 @@ function loginTemplate() {
   return `
     <section class="login-shell">
       <article class="login-card">
-        <h1>Login de Acceso</h1>
-        <p>Ingresa con tu rol de usuario.</p>
+        <h1>Portal Electoral</h1>
+        <p>Ingresa con tus credenciales de usuario</p>
 
         <form id="login-form" class="form-grid">
-          <label for="role">Rol</label>
-          <select id="role" name="role">
-            <option value="veedor">Veedor</option>
-            <option value="distrito">Supervisor de Distrito</option>
-            <option value="colegio">Responsable de Colegio</option>
-            <option value="admin">Administrador</option>
-          </select>
+          <label for="user">Email</label>
+          <input id="user" type="email" placeholder="usuario@electoral.test" required />
 
-          <label for="user">Usuario</label>
-          <input id="user" type="text" placeholder="usuario" required />
-
-          <label for="pass">Clave</label>
-          <input id="pass" type="password" placeholder="clave" required />
+          <label for="pass">Contraseña</label>
+          <input id="pass" type="password" placeholder="tu contraseña" required />
 
           <button class="cta" type="submit">Entrar</button>
           <button class="ghost-btn" data-go="/" type="button">Volver al inicio</button>
         </form>
+
+        <!-- Ayuda para desar rollo -->
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0cce6; font-size: 13px; color: #888;">
+          <p style="font-weight: 600; color: #666; margin-bottom: 8px;">💡 Credenciales de prueba:</p>
+          <p>admin@electoral.test / Admin123456!</p>
+          <p>supervisor.distrito@electoral.test / Supervisor123!</p>
+          <p>supervisor.recinto@electoral.test / Supervisor123!</p>
+          <p>veedor@electoral.test / Veedor123!</p>
+        </div>
       </article>
     </section>
   `
@@ -1178,45 +1203,123 @@ function bindLogin() {
   const form = document.querySelector<HTMLFormElement>('#login-form')
   if (!form) return
 
+  // Mostrar/ocultar mensaje de error
+  const showError = (message: string) => {
+    let errorDiv = document.querySelector<HTMLDivElement>('#login-error')
+    if (!errorDiv) {
+      errorDiv = document.createElement('div')
+      errorDiv.id = 'login-error'
+      errorDiv.style.cssText = `
+        background: #ffebee;
+        border: 2px solid #c00;
+        color: #c00;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        text-align: center;
+      `
+      form.parentElement?.insertBefore(errorDiv, form)
+    }
+    errorDiv.textContent = message
+    errorDiv.style.display = 'block'
+  }
+
+  const hideError = () => {
+    const errorDiv = document.querySelector<HTMLDivElement>('#login-error')
+    if (errorDiv) errorDiv.style.display = 'none'
+  }
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault()
     const userField = document.querySelector<HTMLInputElement>('#user')
     const passField = document.querySelector<HTMLInputElement>('#pass')
-    const roleField = document.querySelector<HTMLSelectElement>('#role')
+    const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]')
 
     const email = userField?.value?.trim() ?? ''
     const password = passField?.value ?? ''
-    const roleFallback = (roleField?.value ?? 'veedor') as RoleId
 
-    // Intentar autenticación real con Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    // Validación de campos vacíos
+    if (!email || !password) {
+      showError('❌ Email y contraseña son requeridos')
+      return
+    }
 
-    if (error) {
-      console.warn('[Supabase Auth] Error, usando rol local como fallback:', error.message)
-      // Fallback temporal: si el login falla, usar selección de rol (modo desarrollo)
-      window.localStorage.setItem('authRole', roleFallback)
-      if (roleFallback === 'veedor') {
+    // Desactivar botón mientras se procesa
+    if (submitBtn) {
+      submitBtn.disabled = true
+      submitBtn.textContent = 'Validando...'
+    }
+
+    hideError()
+
+    try {
+      // 1️⃣ Autenticación con Supabase Auth (OBLIGATORIA)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (authError) {
+        // Errores específicos de autenticación
+        if (authError.message.includes('Invalid login credentials')) {
+          showError('❌ Email o contraseña incorrectos')
+        } else if (authError.message.includes('Email not confirmed')) {
+          showError('❌ Email no confirmado. Revisa tu bandeja de entrada.')
+        } else {
+          showError(`❌ Error de autenticación: ${authError.message}`)
+        }
+        console.error('[Supabase Auth] Error:', authError)
+        if (submitBtn) {
+          submitBtn.disabled = false
+          submitBtn.textContent = 'Entrar'
+        }
+        return
+      }
+
+      if (!authData.user) {
+        showError('❌ Usuario no encontrado')
+        if (submitBtn) {
+          submitBtn.disabled = false
+          submitBtn.textContent = 'Entrar'
+        }
+        return
+      }
+
+      // 2️⃣ Obtener rol del usuario desde tabla usuarios (VALIDACIÓN ADICIONAL)
+      const { data: userData, error: userError } = await supabase
+        .from('usuarios')
+        .select('rol, activo')
+        .eq('auth_id', authData.user.id)
+        .eq('activo', true)
+        .single()
+
+      if (userError || !userData) {
+        showError('❌ Usuario no está registrado en el sistema o está desactivado')
+        console.error('[Usuarios] Error:', userError)
+        if (submitBtn) {
+          submitBtn.disabled = false
+          submitBtn.textContent = 'Entrar'
+        }
+        return
+      }
+
+      // 3️⃣ Login exitoso - guardar sesión
+      const rol = userData.rol as RoleId
+      window.localStorage.setItem('authRole', rol)
+
+      console.log(`✅ [Login] Usuario autenticado: ${email} (${rol})`)
+
+      // Navegar según el rol
+      if (rol === 'veedor') {
         navigate('/')
       } else {
         navigate('/panel')
       }
-      return
-    }
-
-    // Obtener el rol real del usuario desde la tabla usuarios
-    const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('auth_id', data.user.id)
-      .single()
-
-    const rol = (userData?.rol ?? roleFallback) as RoleId
-    window.localStorage.setItem('authRole', rol)
-
-    if (rol === 'veedor') {
-      navigate('/')
-    } else {
-      navigate('/panel')
+    } catch (err) {
+      showError('❌ Error inesperado. Intenta de nuevo.')
+      console.error('[Login] Error:', err)
+      if (submitBtn) {
+        submitBtn.disabled = false
+        submitBtn.textContent = 'Entrar'
+      }
     }
   })
 }
