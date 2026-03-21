@@ -426,11 +426,149 @@ export async function bindVeedor(): Promise<void> {
   // ============================================
   const btnLogout = document.querySelector<HTMLButtonElement>('#btn-logout-veedor')
   if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
+    btnLogout.addEventListener('click', async () => {
+      await supabase.auth.signOut()
       window.localStorage.removeItem('authUser')
       window.localStorage.removeItem('authRole')
       window.history.pushState({}, '', '/login')
-      window.dispatchEvent(new Event('routechange'))
+      // Llamar a renderRoute que debe estar disponible en window
+      const renderRoute = (window as any).renderRoute
+      if (renderRoute) renderRoute()
+    })
+  }
+
+  // ============================================
+  // 12. TOGGLE DE BÚSQUEDA (Search vs Manual)
+  // ============================================
+  const selectionBtns = document.querySelectorAll<HTMLButtonElement>('.selection-btn')
+  const selectionSearch = document.querySelector<HTMLElement>('#selection-search')
+  const selectionManual = document.querySelector<HTMLElement>('#selection-manual')
+
+  selectionBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      const selection = btn.dataset.selection
+      selectionBtns.forEach(b => b.classList.remove('is-active'))
+      btn.classList.add('is-active')
+
+      if (selection === 'search') {
+        selectionSearch?.classList.add('is-active')
+        selectionManual?.classList.remove('is-active')
+      } else {
+        selectionManual?.classList.add('is-active')
+        selectionSearch?.classList.remove('is-active')
+      }
+    })
+  })
+
+  // ============================================
+  // 13. CONFIRMAR SELECCIÓN MANUAL DE COLEGIO
+  // ============================================
+  const btnManualConfirm = document.querySelector<HTMLButtonElement>('#btn-manual-confirm')
+  const colegioSelect = document.querySelector<HTMLSelectElement>('#veedor-colegio')
+  const distritoSelect = document.querySelector<HTMLSelectElement>('#veedor-distrito')
+
+  if (btnManualConfirm) {
+    btnManualConfirm.addEventListener('click', (e) => {
+      e.preventDefault()
+      const colegio = colegioSelect?.value || ''
+      const distrito = distritoSelect?.value || ''
+
+      if (colegio && distrito) {
+        // Obtener nombres de los datos cargados
+        const colegioName = colegioSelect?.options[colegioSelect.selectedIndex]?.text || colegio
+        const distritoName = distritoSelect?.options[distritoSelect.selectedIndex]?.text || distrito
+        showDataSection(`${distritoName} - ${colegioName}`)
+      } else {
+        alert('Por favor, selecciona un distrito y un colegio')
+      }
+    })
+  }
+
+  // ============================================
+  // 14. BOTÓN CAMBIAR UBICACIÓN
+  // ============================================
+  const btnChangeLocation = document.querySelector<HTMLButtonElement>('#btn-change-location')
+  if (btnChangeLocation) {
+    btnChangeLocation.addEventListener('click', (e) => {
+      e.preventDefault()
+      showSelectionSection()
+    })
+  }
+
+  // ============================================
+  // 15. BÚSQUEDA POR NOMBRE DE COLEGIO
+  // ============================================
+  const colegioSearchInput = document.querySelector<HTMLInputElement>('#colegio-search')
+  const colegioResults = document.querySelector<HTMLUListElement>('#colegio-results')
+  const btnColegioDropdown = document.querySelector<HTMLButtonElement>('#colegio-search-dropdown')
+
+  if (colegioSearchInput && colegioResults) {
+    // Función para filtrar y mostrar colegios
+    const renderColegios = (filterTerm: string = '') => {
+      const colegios = filterTerm.trim() === ''
+        ? []
+        : (window as any).colegiosMock?.filter((c: any) =>
+            c.nombre.toLowerCase().includes(filterTerm.toLowerCase())
+          ) || []
+
+      colegioResults.innerHTML = colegios.length > 0
+        ? colegios.map((c: any) =>
+            `<li data-colegio="${c.nombre}" data-distrito="${c.distrito}">
+              <strong>${c.nombre}</strong>
+              <span>${c.distrito}</span>
+            </li>`
+          ).join('')
+        : filterTerm.trim() !== '' ? '<li class="empty">Sin coincidencias</li>' : ''
+    }
+
+    // Evento de búsqueda
+    colegioSearchInput.addEventListener('input', (e) => {
+      const searchTerm = (e.target as HTMLInputElement).value
+      renderColegios(searchTerm)
+    })
+
+    // Click en resultado
+    colegioResults.addEventListener('click', (e) => {
+      const li = (e.target as HTMLElement).closest('li')
+      if (li && !li.classList.contains('empty')) {
+        const colegio = li.dataset.colegio as string
+        const distrito = li.dataset.distrito as string
+        
+        // Limpiar búsqueda
+        colegioSearchInput.value = ''
+        colegioResults.innerHTML = ''
+        
+        // Mostrardatos
+        showDataSection(`${distrito} - ${colegio}`)
+      }
+    })
+
+    // Dropdown para mostrar todos
+    if (btnColegioDropdown) {
+      btnColegioDropdown.addEventListener('click', () => {
+        if (colegioResults.innerHTML !== '') {
+          colegioResults.innerHTML = ''
+        } else {
+          const allColegios = (window as any).colegiosMock || []
+          colegioResults.innerHTML = allColegios
+            .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+            .map((c: any) =>
+              `<li data-colegio="${c.nombre}" data-distrito="${c.distrito}">
+                <strong>${c.nombre}</strong>
+                <span>${c.distrito}</span>
+              </li>`
+            ).join('')
+        }
+      })
+    }
+
+    // Cerrar dropdown cuando haces click fuera
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (!colegioSearchInput.contains(target) && !btnColegioDropdown?.contains(target)) {
+        colegioResults.innerHTML = ''
+      }
     })
   }
 

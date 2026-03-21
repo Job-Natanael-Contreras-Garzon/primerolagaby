@@ -193,9 +193,6 @@ document.addEventListener('click', (e) => {
 // Navigation con popstate (botón atrás del navegador)
 window.addEventListener('popstate', renderRoute)
 
-// Emit custom 'routechange' event listener
-window.addEventListener('routechange', renderRoute)
-
 // Al cargar, si no está en login y no está logueado, ir a login
 window.addEventListener('load', async () => {
   await loadCatalogos()
@@ -213,6 +210,7 @@ window.addEventListener('load', async () => {
 // Export globals para debugging
 (window as any).supabase = supabase
 (window as any).navigate = navigate
+(window as any).renderRoute = renderRoute
 (window as any).colegiosMock = colegiosMock
 (window as any).partidos = partidos
 (window as any).cargos = cargos

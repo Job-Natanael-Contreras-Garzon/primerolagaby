@@ -34,7 +34,7 @@ export function veedorTemplate() {
 
               <div class="selection-toggle">
                 <button type="button" class="selection-btn" data-selection="search">🔍 Buscar por nombre de colegio</button>
-                <button type="button" class="selection-btn" data-selection="manual">📍 Buscar por distrito</button>
+                <button type="button" class="selection-btn is-active" data-selection="manual">📍 Buscar por distrito</button>
               </div>
 
               <!-- Panel de búsqueda -->
@@ -47,7 +47,7 @@ export function veedorTemplate() {
               </div>
 
               <!-- Panel manual -->
-              <div id="selection-manual" class="selection-panel">
+              <div id="selection-manual" class="selection-panel is-active">
                 <div class="form-row-2">
                   <div>
                     <label for="veedor-distrito">Distrito</label>
