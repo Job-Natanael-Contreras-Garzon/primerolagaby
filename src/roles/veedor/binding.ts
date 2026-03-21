@@ -369,38 +369,7 @@ export async function bindVeedor(): Promise<void> {
   }
 
   // ============================================
-  // 8. CAMBIAR UBICACIÓN
-  // ============================================
-  const btnChangeLocation = document.querySelector<HTMLButtonElement>('#btn-change-location')
-  if (btnChangeLocation) {
-    btnChangeLocation.addEventListener('click', (e) => {
-      e.preventDefault()
-      showSelectionSection()
-    })
-  }
-
-  // ============================================
-  // 9. CONFIRMAR SELECCIÓN MANUAL
-  // ============================================
-  const btnManualConfirm = document.querySelector<HTMLButtonElement>('#btn-manual-confirm')
-  const colegioSelect = document.querySelector<HTMLSelectElement>('#veedor-colegio')
-  
-  if (btnManualConfirm) {
-    btnManualConfirm.addEventListener('click', (e) => {
-      e.preventDefault()
-      const colegio = colegioSelect?.value || ''
-      
-      if (colegio) {
-        const colegioName = colegioSelect?.options[colegioSelect.selectedIndex]?.text || 'Colegio'
-        showDataSection(colegioName)
-      } else {
-        alert('Por favor selecciona un colegio')
-      }
-    })
-  }
-
-  // ============================================
-  // 10. ENVÍO DE FORMULARIO
+  // 8. ENVÍO DE FORMULARIO
   // ============================================
   const form = document.querySelector<HTMLFormElement>('#veedor-form')
   const successFieldset = document.querySelector<HTMLElement>('#success-fieldset')
@@ -422,7 +391,7 @@ export async function bindVeedor(): Promise<void> {
   }
 
   // ============================================
-  // 11. LOGOUT
+  // 9. LOGOUT
   // ============================================
   const btnLogout = document.querySelector<HTMLButtonElement>('#btn-logout-veedor')
   if (btnLogout) {
@@ -438,7 +407,7 @@ export async function bindVeedor(): Promise<void> {
   }
 
   // ============================================
-  // 12. TOGGLE DE BÚSQUEDA (Search vs Manual)
+  // 10. TOGGLE DE BÚSQUEDA (Search vs Manual)
   // ============================================
   const selectionBtns = document.querySelectorAll<HTMLButtonElement>('.selection-btn')
   const selectionSearch = document.querySelector<HTMLElement>('#selection-search')
@@ -462,7 +431,7 @@ export async function bindVeedor(): Promise<void> {
   })
 
   // ============================================
-  // 13. CONFIRMAR SELECCIÓN MANUAL DE COLEGIO
+  // 11. CONFIRMAR SELECCIÓN MANUAL DE COLEGIO
   // ============================================
   const btnManualConfirm = document.querySelector<HTMLButtonElement>('#btn-manual-confirm')
   const colegioSelect = document.querySelector<HTMLSelectElement>('#veedor-colegio')
@@ -486,7 +455,7 @@ export async function bindVeedor(): Promise<void> {
   }
 
   // ============================================
-  // 14. BOTÓN CAMBIAR UBICACIÓN
+  // 12. BOTÓN CAMBIAR UBICACIÓN
   // ============================================
   const btnChangeLocation = document.querySelector<HTMLButtonElement>('#btn-change-location')
   if (btnChangeLocation) {
@@ -497,7 +466,7 @@ export async function bindVeedor(): Promise<void> {
   }
 
   // ============================================
-  // 15. BÚSQUEDA POR NOMBRE DE COLEGIO
+  // 13. BÚSQUEDA POR NOMBRE DE COLEGIO
   // ============================================
   const colegioSearchInput = document.querySelector<HTMLInputElement>('#colegio-search')
   const colegioResults = document.querySelector<HTMLUListElement>('#colegio-results')
