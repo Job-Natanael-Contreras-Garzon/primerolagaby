@@ -71,14 +71,15 @@ async function loadCatalogos() {
       }))
     }
 
-    // Actualizar datos globales en window
+    console.log('✓ Catálogos cargados desde Supabase')
+  } catch (err) {
+    console.warn('⚠️ Supabase no disponible, usando datos locales:', err)
+  } finally {
+    // SIEMPRE actualizar datos globales en window, aunque sean vacíos o del fallback
     (window as any).colegiosMock = colegiosMock
     (window as any).partidos = partidos
     (window as any).cargos = cargos
     (window as any).mesas = mesas
-
-  } catch (err) {
-    console.error('[Supabase] Error cargando catálogos:', err)
   }
 }
 
@@ -182,6 +183,15 @@ async function renderRoute() {
 // EVENT LISTENERS & INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Inicializar datos globales en window INMEDIATAMENTE
+;(window as any).colegiosMock = colegiosMock
+;(window as any).partidos = partidos
+;(window as any).cargos = cargos
+;(window as any).mesas = mesas
+;(window as any).supabase = supabase
+;(window as any).navigate = navigate
+;(window as any).renderRoute = renderRoute
+
 function setupEventListeners() {
   // Navegación con botones data-go
   document.addEventListener('click', (e) => {
@@ -199,41 +209,31 @@ function setupEventListeners() {
   })
 }
 
-// Al cargar, si no está en login y no está logueado, ir a login
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', async () => {
-    setupEventListeners()
-    await loadCatalogos()
-    const route = getRoute()
-    if (route !== 'login') {
-      const loggedIn = await isLoggedIn()
-      if (!loggedIn) {
-        navigate('/login')
-        return
-      }
-    }
-    renderRoute()
-  })
-} else {
-  // Si el DOM ya está listo (ej: en hot reload)
+// Esperar a que el DOM esté listo y cargue catálogos ANTES de renderizar
+async function initializeApp() {
+  // Configurar event listeners
   setupEventListeners()
-  loadCatalogos().then(() => {
-    const route = getRoute()
-    if (route !== 'login') {
-      isLoggedIn().then(loggedIn => {
-        if (!loggedIn) {
-          navigate('/login')
-        } else {
-          renderRoute()
-        }
-      })
-    } else {
-      renderRoute()
+  
+  // Cargar datos de Supabase (o usar fallback)
+  await loadCatalogos()
+  
+  // Luego renderizar
+  const route = getRoute()
+  if (route !== 'login') {
+    const loggedIn = await isLoggedIn()
+    if (!loggedIn) {
+      navigate('/login')
+      return
     }
-  })
+  }
+  
+  renderRoute()
 }
 
-// Export globals para debugging
-;(window as any).supabase = supabase
-;(window as any).navigate = navigate
-;(window as any).renderRoute = renderRoute
+// Ejecutar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp)
+} else {
+  // Si el script se carga tarde (hot reload), ejecutar inmediatamente
+  initializeApp()
+}

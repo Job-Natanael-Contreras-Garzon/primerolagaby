@@ -152,19 +152,19 @@ export async function bindVeedor(): Promise<void> {
         .select('id, nombre, distrito_id')
         .order('nombre')
 
-      if (distritos && colegios) {
+      if (distritos && colegios && colegios.length > 0) {
         console.log('✓ Colegios cargados de Supabase:', colegios.length)
         return { distritos: distritos || [], colegios: colegios || [] }
       } else {
-        throw new Error('Sin datos')
+        throw new Error('Supabase devolvió datos vacíos - probablemente RLS está habilitado')
       }
     } catch (error) {
-      console.warn('⚠️ Supabase no disponible, usando datos locales:', error)
+      console.warn('⚠️ Supabase no disponible (probablemente RLS habilitado):', error)
       // Fallback: usar colegiosMock de window si está disponible
       const globalColegios = (window as any).colegiosMock || []
       
       if (globalColegios.length > 0) {
-        console.log('✓ Usando colegios locales:', globalColegios.length)
+        console.log('✓ Usando colegios del fallback local:', globalColegios.length)
         
         // Crear lista de distritos únicos CON IDs correctos
         const distritosMap = new Map<string, { id: number; nombre: string }>()
@@ -184,6 +184,8 @@ export async function bindVeedor(): Promise<void> {
         }))
         
         return { distritos, colegios }
+      } else {
+        console.error('❌ No hay colegios disponibles - Supabase bloqueado y sin fallback')
       }
       
       return { distritos: [], colegios: [] }
@@ -627,14 +629,21 @@ export async function bindVeedor(): Promise<void> {
   if (submitBtn) submitBtn.disabled = true
 
   // Cargar datos en paralelo
+  console.log('⏳ Cargando cámara y colegios...')
   await Promise.all([
     initCamera(),
     configureSelection()
   ])
 
-  console.log('✓ Datos cargados - Colegios disponibles:', (window as any).colegiosMock?.length || 'N/A')
+  const colegiosCount = (window as any).colegiosMock?.length || 0
+  console.log('✓ Datos cargados - Colegios disponibles:', colegiosCount)
+  
+  if (colegiosCount === 0) {
+    console.warn('⚠️ No hay colegios disponibles. Verifica que Supabase tenga datos y que RLS esté deshabilitado.')
+  }
 
   // Renderizar cargos y candidatos
+  console.log('⏳ Renderizando cargos y fotos...')
   renderCargos()
   setupPhoto()
 
