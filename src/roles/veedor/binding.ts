@@ -124,21 +124,24 @@ export async function bindVeedor(): Promise<void> {
     // Habilitar si: mesa + foto + todos cargos completos
     const todoBien = mesa.length >= 3 && foto && todosCargosCompletos
     
-    if (todoBien !== formularioListo) {
-      formularioListo = todoBien
-      submitBtn.disabled = !formularioListo
-      
-      if (formularioListo) {
-        submitBtn.style.opacity = '1'
-        submitBtn.innerHTML = '✓ Guardar mesa'
-        console.log('✅ Formulario completo - Guardar habilitado')
-      } else {
-        submitBtn.style.opacity = '0.5'
-        const falta = []
-        if (mesa.length < 3) falta.push(`Mesa (${mesa.length}/3)`)
-        if (!foto) falta.push('Foto')
-        if (!todosCargosCompletos) falta.push(`Votos: ${votosFaltantes.join(', ')}`)
-        submitBtn.innerHTML = `⏳ Falta: ${falta.join(' • ')}`
+    formularioListo = todoBien
+    submitBtn.disabled = !formularioListo
+
+    if (formularioListo) {
+      submitBtn.style.opacity = '1'
+      submitBtn.innerHTML = '✓ Guardar mesa'
+      console.log('✅ Formulario completo - Guardar habilitado')
+    } else {
+      submitBtn.style.opacity = '0.5'
+      const falta = []
+      if (mesa.length < 3) falta.push(`Mesa (${mesa.length}/3)`)
+      if (!foto) falta.push('Foto')
+      if (!todosCargosCompletos) falta.push(`Votos: ${votosFaltantes.join(', ')}`)
+      submitBtn.innerHTML = `⏳ Falta: ${falta.join(' • ')}`
+
+      // Evita spam en consola: solo registrar cuando cambia el mensaje mostrado.
+      if ((submitBtn as any)._lastMissingText !== submitBtn.innerHTML) {
+        ;(submitBtn as any)._lastMissingText = submitBtn.innerHTML
         console.log('⏳ Esperando:', falta.join(', '))
       }
     }
