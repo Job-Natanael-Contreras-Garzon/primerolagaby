@@ -2190,11 +2190,11 @@ function bindPanel() {
       }
     }
 
-    // Consultar vista_monitoreo con filtro de cargo y opcionalmente distrito
+    // Consultar vista_monitoreo sin filtro de tipo_cargo (la vista puede no tenerlo)
     let query = supabase
       .from('vista_monitoreo')
       .select('partido_id, partido, sigla, color_hex, total_votos')
-      .eq('tipo_cargo', tipoCargo)
+      // Removido: .eq('tipo_cargo', tipoCargo)  - La vista no tiene este filtro
 
     if (distritoIdFiltro !== null) {
       query = query.eq('distrito_id', distritoIdFiltro)
@@ -3213,6 +3213,16 @@ async function bindAdmin() {
   if (btnCloseEditUsuario) {
     btnCloseEditUsuario.addEventListener('click', () => {
       if (modalEditUsuario) modalEditUsuario.style.display = 'none'
+    })
+  }
+
+  // ─── CERRAR MODAL DE EDITAR RECINTO ────────────────────────────────────
+  const modalEditRecinto = document.querySelector<HTMLElement>('#modal-edit-recinto')
+  const btnCloseEditRecinto = document.querySelector<HTMLButtonElement>('#btn-close-edit-recinto')
+
+  if (btnCloseEditRecinto) {
+    btnCloseEditRecinto.addEventListener('click', () => {
+      if (modalEditRecinto) modalEditRecinto.style.display = 'none'
     })
   }
 
