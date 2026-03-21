@@ -110,13 +110,14 @@ export async function bindVeedor(): Promise<void> {
     
     // Verificar candidatos - cada cargo debe tener al menos 1 voto
     let todosCargosCompletos = true
+    let votosFaltantes = []
     
     for (const cargo of cargos) {
       const votos = cargoVotes[cargo.id] || {}
       const total = Object.values(votos).reduce((sum, v) => sum + v, 0)
       if (total === 0) {
         todosCargosCompletos = false
-        break
+        votosFaltantes.push(cargo.nombre)
       }
     }
 
@@ -130,9 +131,15 @@ export async function bindVeedor(): Promise<void> {
       if (formularioListo) {
         submitBtn.style.opacity = '1'
         submitBtn.innerHTML = '✓ Guardar mesa'
+        console.log('✅ Formulario completo - Guardar habilitado')
       } else {
         submitBtn.style.opacity = '0.5'
-        submitBtn.innerHTML = '⏳ Completa todo antes de guardar'
+        const falta = []
+        if (mesa.length < 3) falta.push(`Mesa (${mesa.length}/3)`)
+        if (!foto) falta.push('Foto')
+        if (!todosCargosCompletos) falta.push(`Votos: ${votosFaltantes.join(', ')}`)
+        submitBtn.innerHTML = `⏳ Falta: ${falta.join(' • ')}`
+        console.log('⏳ Esperando:', falta.join(', '))
       }
     }
   }
@@ -276,6 +283,7 @@ export async function bindVeedor(): Promise<void> {
     if (tabs.length > 0) {
       const firstCargoId = parseInt(tabs[0].dataset.cargo as string)
       renderCandidatos(firstCargoId)
+      checkAllReady()
     }
   }
 
