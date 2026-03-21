@@ -268,24 +268,24 @@ async function createTestUsers() {
 
   console.log('✨ Usuario lector configurado correctamente!\n')
 
-  console.log('════════════════════════════════════════════')
-  console.log('📋 CREDENCIALES - USUARIO LECTOR')
-  console.log('════════════════════════════════════════════\n')
+  console.log('════════════════════════════════════════════════════════════════')
+  console.log('📋 CREDENCIALES DE PRUEBA - TODOS LOS USUARIOS')
+  console.log('════════════════════════════════════════════════════════════════\n')
 
-  const lector = testUsers.find(u => u.rol === 'lector')
-  if (lector) {
-    console.log(`Email: ${lector.email}`)
-    console.log(`Contraseña: ${lector.password}`)
-    console.log(`Rol: ${lector.rol}`)
+  testUsers.forEach((user) => {
+    console.log(`🔐 ${user.rol.toUpperCase()}`)
+    console.log(`   Email: ${user.email}`)
+    console.log(`   Contraseña: ${user.password}`)
+    if (user.distrito) console.log(`   Acceso: ${user.distrito}${user.recinto ? ` → ${user.recinto}` : ''}`)
     console.log()
-  }
+  })
 
-  console.log('════════════════════════════════════════════')
+  console.log('════════════════════════════════════════════════════════════════')
   console.log('Para usar en desarrollo:')
-  console.log('1. Abre http://localhost:5173')
+  console.log('1. Abre http://localhost:5173 en tu navegador')
   console.log('2. Haz clic en "Login de Acceso"')
-  console.log('3. Usa las credenciales de arriba')
-  console.log('════════════════════════════════════════════\n')
+  console.log('3. Usa cualquier combinación email/contraseña de arriba')
+  console.log('════════════════════════════════════════════════════════════════\n')
 }
 
 createTestUsers().catch(console.error)
