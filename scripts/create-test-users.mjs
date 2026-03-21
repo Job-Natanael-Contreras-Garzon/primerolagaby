@@ -93,100 +93,198 @@ const testUsers = [
   },
 ]
 
+async function ensureRolExists(rol) {
+  console.log(`🔍 Verificando si el rol '${rol}' existe...`)
+  
+  // Intentar insertar un usuario de prueba con el rol
+  try {
+    const { data: insertResult, error: insertError } = await supabase
+      .from('usuarios')
+      .insert({ 
+        email: `test-rol-${rol}-${Date.now()}@test.test`, 
+        rol: rol, 
+        nombre: 'Test', 
+        apellido: 'Test', 
+        activo: false 
+      })
+      .select()
+    
+    // Si se insertó, eliminar el registro de prueba
+    if (insertResult && insertResult.length > 0) {
+      await supabase.from('usuarios').delete().eq('email', `test-rol-${rol}-${Date.now()}@test.test`)
+      console.log(`✅ Rol '${rol}' verificado\n`)
+      return true
+    }
+    
+    // Si da error sobre constraint, el rol no existe
+    if (insertError && insertError.message && insertError.message.includes('violates check constraint')) {
+      console.log(`⚠️  Rol '${rol}' no existe en CHECK constraint\n`)
+      return false
+    }
+    
+    if (insertError) {
+      console.log(`⚠️  Error al verificar rol (asumiendo que existe): ${insertError.message}\n`)
+      return true
+    }
+    
+  } catch (error) {
+    console.log(`✅ Rol '${rol}' parece existir\n`)
+    return true
+  }
+}
+
+async function ensureUserInTable(authId, email, nombre, apellido, rol) {
+  console.log(`🔍 Verificando si ${email} existe en tabla usuarios...`)
+  
+  const { data: existingUser, error: searchError } = await supabase
+    .from('usuarios')
+    .select('id')
+    .eq('email', email)
+    .single()
+  
+  if (existingUser) {
+    console.log(`  ⚠️  El usuario ya existe en tabla usuarios: ${existingUser.id}\n`)
+    return true
+  }
+  
+  if (searchError && searchError.code !== 'PGRST116') {
+    console.warn(`  ⚠️  Error al buscar usuario:`, searchError.message)
+  }
+  
+  // Insertar el usuario
+  console.log(`  📝 Insertando ${email} en tabla usuarios...`)
+  const { data: insertedUser, error: insertError } = await supabase
+    .from('usuarios')
+    .insert({
+      auth_id: authId,
+      email: email,
+      nombre: nombre,
+      apellido: apellido,
+      rol: rol,
+      activo: true,
+      distrito_id: null,
+      recinto_id: null,
+    })
+    .select()
+    .single()
+  
+  if (insertError) {
+    if (insertError.message.includes('violates check constraint')) {
+      console.error(`  ❌ El rol '${rol}' no existe en la CHECK constraint de usuarios`)
+      console.error(`     Necesita agregarse en Supabase SQL Editor`)
+      return false
+    }
+    throw insertError
+  }
+  
+  console.log(`  ✅ Usuario insertado en tabla usuarios: ${insertedUser?.id}\n`)
+  return true
+}
+
 async function createTestUsers() {
   console.log('🚀 Creando usuarios de prueba...\n')
 
-  for (const user of testUsers) {
+  // Primero, solo verificar/crear rol lector y usuario lector
+  const lectorUser = testUsers.find(u => u.rol === 'lector')
+  
+  if (lectorUser) {
     try {
-      // 1. Crear en Supabase Auth
-      console.log(`📝 Creando ${user.rol}: ${user.email}...`)
-
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email: user.email,
-        password: user.password,
-        email_confirm: true,
-      })
-
-      if (authError) {
-        if (authError.message.includes('already exists')) {
-          console.warn(`⚠️  El usuario ${user.email} ya existe. Saltando...`)
-          continue
-        }
-        throw authError
+      // 1. Verificar rol lector
+      const rolExists = await ensureRolExists('lector')
+      
+      if (!rolExists) {
+        console.error('❌ El rol "lector" no puede crearse automáticamente.')
+        console.error('Debes agregarlo manualmente en Supabase SQL Editor:')
+        console.error('  ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;')
+        console.error('  ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN (\'admin\', \'supervisor1\', \'supervisor2\', \'veedor\', \'lector\'));')
+        process.exit(1)
       }
-
-      console.log(`  ✅ Usuario creado en Auth: ${authUser.user?.id}`)
-
-      // 2. Obtener IDs de distrito y recinto
-      let distritoId = null
-      let recintoId = null
-
-      if (user.distrito) {
-        const { data: distData, error: distError } = await supabase
-          .from('distritos')
-          .select('id')
-          .ilike('nombre', user.distrito)
-          .single()
-
-        if (distError) console.warn(`  ⚠️  No se encontró el distrito: ${user.distrito}`)
-        else distritoId = distData?.id
-      }
-
-      if (user.recinto) {
-        const { data: recData, error: recError } = await supabase
-          .from('recintos')
-          .select('id')
-          .ilike('nombre', user.recinto)
-          .single()
-
-        if (recError) console.warn(`  ⚠️  No se encontró el recinto: ${user.recinto}`)
-        else recintoId = recData?.id
-      }
-
-      // 3. Insertar en tabla usuarios
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from('usuarios')
-        .insert({
-          auth_id: authUser.user?.id,
-          nombre: user.nombre,
-          apellido: user.apellido,
-          email: user.email,
-          rol: user.rol,
-          distrito_id: distritoId,
-          recinto_id: recintoId,
-          activo: true,
+      
+      // 2. Verificar si el usuario lector existe en Auth
+      console.log(`📝 Verificando usuario lector en Auth: ${lectorUser.email}...`)
+      
+      let lectorAuthId = null
+      
+      // Intentar crear, pero capturar el error
+      let createAttempt = null
+      try {
+        createAttempt = await supabase.auth.admin.createUser({
+          email: lectorUser.email,
+          password: lectorUser.password,
+          email_confirm: true,
         })
-        .select()
-        .single()
-
-      if (usuarioError) throw usuarioError
-
-      console.log(`  ✅ Registro creado en tabla usuarios: ${usuarioData?.id}\n`)
+      } catch (createError) {
+        createAttempt = { data: null, error: createError }
+      }
+      
+      if (createAttempt.error) {
+        const errorMsg = createAttempt.error.message || createAttempt.error.toString() || ''
+        
+        if (errorMsg.includes('already exists') || errorMsg.includes('already been registered')) {
+          console.log(`  ⚠️  El usuario ya existe en Auth. Buscando ID...`)
+          
+          // Buscar el ID del usuario existente
+          const listResult = await supabase.auth.admin.listUsers()
+          
+          let users = listResult.data?.users || []
+          
+          const existingLector = users.find(u => u.email === lectorUser.email)
+          
+          if (existingLector) {
+            lectorAuthId = existingLector.id
+            console.log(`  ✅ Encontrado en Auth: ${lectorAuthId}`)
+          } else {
+            throw new Error('No se pudo encontrar el usuario en Auth')
+          }
+        } else {
+          throw createAttempt.error
+        }
+      } else {
+        lectorAuthId = createAttempt.data?.user?.id
+        console.log(`  ✅ Usuario creado en Auth: ${lectorAuthId}`)
+      }
+      
+      // 3. Verificar/crear usuario en tabla usuarios
+      if (lectorAuthId) {
+        const success = await ensureUserInTable(
+          lectorAuthId,
+          lectorUser.email,
+          lectorUser.nombre,
+          lectorUser.apellido,
+          lectorUser.rol
+        )
+        
+        if (!success) {
+          console.error('❌ No se pudo crear el usuario lector en la tabla')
+          process.exit(1)
+        }
+      }
+      
     } catch (error) {
-      console.error(`❌ Error creando ${user.email}:`, error.message)
+      console.error(`❌ Error con usuario lector: ${error.message}`)
+      process.exit(1)
     }
   }
 
-  console.log('✨ Proceso completado!\n')
+  console.log('✨ Usuario lector configurado correctamente!\n')
 
   console.log('════════════════════════════════════════════')
-  console.log('📋 CREDENCIALES DE PRUEBA')
+  console.log('📋 CREDENCIALES - USUARIO LECTOR')
   console.log('════════════════════════════════════════════\n')
 
-  testUsers.forEach((user) => {
-    console.log(`${user.rol.toUpperCase()}:`)
-    console.log(`  Email: ${user.email}`)
-    console.log(`  Contraseña: ${user.password}`)
-    console.log(`  Rol: ${user.rol}`)
-    if (user.distrito) console.log(`  Acceso: ${user.distrito}${user.recinto ? ` - ${user.recinto}` : ''}`)
+  const lector = testUsers.find(u => u.rol === 'lector')
+  if (lector) {
+    console.log(`Email: ${lector.email}`)
+    console.log(`Contraseña: ${lector.password}`)
+    console.log(`Rol: ${lector.rol}`)
     console.log()
-  })
+  }
 
   console.log('════════════════════════════════════════════')
   console.log('Para usar en desarrollo:')
-  console.log('1. Abierto http://localhost:5174')
+  console.log('1. Abre http://localhost:5173')
   console.log('2. Haz clic en "Login de Acceso"')
-  console.log('3. Usa la combinación email/contraseña de arriba')
+  console.log('3. Usa las credenciales de arriba')
   console.log('════════════════════════════════════════════\n')
 }
 
