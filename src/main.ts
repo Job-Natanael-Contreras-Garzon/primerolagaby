@@ -2655,9 +2655,12 @@ async function bindAdmin() {
     // Cargar gráfica de votos con ApexCharts
     const { data: monitorData, error: monitorErr } = await supabase
       .from('vista_monitoreo')
-      .select('partido_sigla, partido_color, total_votos')
-      // Removido: .eq('tipo_cargo', 'alcalde')  - Causa error 400
+      .select('id, sigla, color_hex, total_votos')
       .order('total_votos', { ascending: false })
+
+    if (monitorErr) {
+      console.error('[Supabase] Error cargando vista_monitoreo:', monitorErr)
+    }
 
     if (!monitorErr && monitorData && monitorData.length > 0) {
       const chartData = monitorData.map((row: any) => ({
@@ -3620,14 +3623,18 @@ async function bindCarrasco() {
     document.getElementById('distritos-procesados')!.textContent = distritosData?.length.toString() || '0'
 
     // Cargar resultados por partido
-    const { data: resultadosData } = await supabase
+    const { data: resultadosData, error: resultErr } = await supabase
       .from('resultados_transmision')
-      .select('partidos(nombre), votos')
+      .select('partido_id, votos_obtenidos, partidos(nombre)')
+
+    if (resultErr) {
+      console.error('[Supabase] Error cargando resultados_transmision:', resultErr)
+    }
 
     const partidosMap = new Map<string, number>()
     resultadosData?.forEach((r: any) => {
       const partidoNombre = r.partidos?.nombre || 'Desconocido'
-      partidosMap.set(partidoNombre, (partidosMap.get(partidoNombre) || 0) + r.votos)
+      partidosMap.set(partidoNombre, (partidosMap.get(partidoNombre) || 0) + (r.votos_obtenidos || 0))
     })
 
     const partidosHtml = Array.from(partidosMap.entries())
