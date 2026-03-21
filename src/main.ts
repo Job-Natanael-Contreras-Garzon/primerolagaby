@@ -534,6 +534,7 @@ function adminTemplate() {
 
           <article class="card">
             <h3>📋 Listado de Distritos</h3>
+            <input type="text" id="admin-search-distritos" placeholder="🔍 Buscar por nombre o número..." style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
               <button type="button" id="btn-export-distritos" class="cta-secondary" style="flex:1;min-width:140px;">📥 Exportar Excel</button>
               <button type="button" id="btn-import-distritos" class="cta-secondary" style="flex:1;min-width:140px;">📤 Importar Excel</button>
@@ -566,7 +567,14 @@ function adminTemplate() {
 
           <article class="card">
             <h3>📋 Listado de Recintos</h3>
+            <input type="text" id="admin-search-recintos" placeholder="🔍 Buscar por nombre, dirección o distrito..." style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" />
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+              <button type="button" id="btn-export-recintos" class="cta-secondary" style="flex:1;min-width:140px;">📥 Exportar Excel</button>
+              <button type="button" id="btn-import-recintos" class="cta-secondary" style="flex:1;min-width:140px;">📤 Importar Excel</button>
+            </div>
             <div id="admin-recintos-list" class="recintos-list" style="margin-top: 16px;"></div>
+            <div id="admin-recintos-pagination" style="margin-top: 16px;"></div>
+            <input type="file" id="input-import-recintos" accept=".xlsx,.xls" style="display: none;" />
           </article>
         </section>
 
@@ -2164,7 +2172,7 @@ function bindPanel() {
   }
 
   // Función para obtener datos reales de Supabase
-  const loadChartData = async (tipoCargo: 'alcalde' | 'concejal') => {
+  const loadChartData = async () => {
     if (!pieChartSvg || !chartLegend) return
 
     // Mostrar estado de carga
@@ -2229,7 +2237,7 @@ function bindPanel() {
   }
 
   // Cargar datos al entrar a la sección de reportes
-  loadChartData('alcalde')
+  loadChartData()
 
   // Escuchar cambio de cargo
   document.addEventListener('click', (e) => {
@@ -2237,25 +2245,20 @@ function bindPanel() {
     if (!btn) return
     document.querySelectorAll<HTMLButtonElement>('#cargo-filter .cargo-tab').forEach((b) => b.classList.remove('is-active'))
     btn.classList.add('is-active')
-    const cargo = btn.dataset.cargo as 'alcalde' | 'concejal'
-    loadChartData(cargo)
+    loadChartData()
   })
 
   // ─── REALTIME: actualización en vivo ────────────────────────────────────
-  const getActiveCargo = (): 'alcalde' | 'concejal' => {
-    const activeBtn = document.querySelector<HTMLButtonElement>('#cargo-filter .cargo-tab.is-active')
-    return (activeBtn?.dataset.cargo as 'alcalde' | 'concejal') ?? 'alcalde'
-  }
 
   const realtimeChannel = supabase
     .channel('panel-monitoreo')
     // Nueva transmisión → refrescar gráfico
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transmisiones' }, () => {
-      loadChartData(getActiveCargo())
+      loadChartData()
     })
     // Mesa actualizada → actualizar badge de estado en la lista visible
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mesas' }, (payload) => {
-      loadChartData(getActiveCargo())
+      loadChartData()
       const mesaId = (payload.new as any)?.id
       if (mesaId) {
         const mesaItem = document.querySelector<HTMLElement>(`.mesa-item[data-mesa-id="${mesaId}"]`)
@@ -2274,7 +2277,7 @@ function bindPanel() {
     })
     // Nueva incidencia → refrescar gráfico
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'incidencias' }, () => {
-      loadChartData(getActiveCargo())
+      loadChartData()
     })
     .subscribe((status) => {
       console.log('[Realtime] Panel channel status:', status)
@@ -2802,44 +2805,103 @@ async function bindAdmin() {
   }
 
   // ─── DISTRITOS ────────────────────────────────────────────────────────────
-  const loadAdminDistritos = async () => {
+  let adminDistritosAllData: any[] = []
+  let adminDistritosCurrentPage = 1
+  let adminDistritosSearchTerm = ''
+
+  const loadAdminDistritos = async (searchTerm: string = '') => {
     const distritosList = document.querySelector<HTMLElement>('#admin-distritos-list')
+    const paginationContainer = document.querySelector<HTMLElement>('#admin-distritos-pagination')
     if (!distritosList) return
 
-    const { data: distritosData, error } = await supabase
-      .from('distritos')
-      .select('id, nombre, numero_distrito, activo')
-      .eq('activo', true)
-      .order('numero_distrito', { ascending: true })
+    let distritosData = cache.get<any[]>('admin_distritos')
 
-    if (error || !distritosData) {
-      distritosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando distritos</p>'
-      return
+    if (!distritosData) {
+      const { data, error } = await supabase
+        .from('distritos')
+        .select('id, nombre, numero_distrito, activo')
+        .eq('activo', true)
+        .order('numero_distrito', { ascending: true })
+
+      if (error || !data) {
+        distritosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando distritos</p>'
+        return
+      }
+
+      distritosData = data
+      cache.set('admin_distritos', distritosData, 5)
     }
 
-    if (distritosData.length === 0) {
+    adminDistritosAllData = distritosData
+    let filtered = distritosData
+    if (searchTerm) {
+      filtered = distritosData.filter((d) =>
+        d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.numero_distrito.toString().includes(searchTerm)
+      )
+    }
+
+    if (filtered.length === 0) {
       distritosList.innerHTML = '<p class="empty">No hay distritos registrados</p>'
+      if (paginationContainer) paginationContainer.innerHTML = ''
       return
     }
 
-    distritosList.innerHTML = distritosData
+    const pageSize = 100
+    const state = pagination.calculate(filtered.length, adminDistritosCurrentPage, pageSize)
+    const pagedData = pagination.getPageItems(filtered, adminDistritosCurrentPage, pageSize)
+
+    distritosList.innerHTML = pagedData
       .map(
-        (d: any) => `<div class="mesa-item">
+        (d: any) => `<div class="mesa-item" style="justify-content:space-between;align-items:center;">
         <div class="mesa-info">
           <strong>Distrito ${d.numero_distrito}</strong>
           <span>${d.nombre}</span>
         </div>
-        <button class="btn-delete-distrito" data-id="${d.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-edit-distrito" data-id="${d.id}" style="background:#007bff;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Editar</button>
+          <button class="btn-delete-distrito" data-id="${d.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+        </div>
       </div>`
       )
       .join('')
 
+    if (paginationContainer) {
+      const paginationHTML = pagination.generatePaginationHTML(state)
+      paginationContainer.innerHTML = paginationHTML
+      pagination.attachPaginationEvents('admin-distritos-pagination', (page) => {
+        adminDistritosCurrentPage = page
+        loadAdminDistritos(adminDistritosSearchTerm)
+      })
+    }
+
     distritosList.querySelectorAll<HTMLButtonElement>('.btn-delete-distrito').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('¿Eliminar este distrito?')) return
-        const { error } = await supabase.from('distritos').delete().eq('id', parseInt(btn.dataset.id as string))
-        if (error) alert('Error')
-        else loadAdminDistritos()
+        const id = parseInt(btn.dataset.id as string)
+        const { error } = await supabase.from('distritos').delete().eq('id', id)
+        if (error) alert('Error al eliminar')
+        else {
+          cache.remove('admin_distritos')
+          loadAdminDistritos(adminDistritosSearchTerm)
+        }
+      })
+    })
+
+    distritosList.querySelectorAll<HTMLButtonElement>('.btn-edit-distrito').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const distId = parseInt(btn.dataset.id as string)
+        const dist = adminDistritosAllData.find((d) => d.id === distId)
+        if (!dist) return
+
+        const modal = document.querySelector<HTMLElement>('#modal-edit-distrito')
+        if (!modal) return
+
+        document.querySelector<HTMLInputElement>('#edit-distrito-id')!.value = dist.id
+        document.querySelector<HTMLInputElement>('#edit-distrito-nombre')!.value = dist.nombre
+        document.querySelector<HTMLInputElement>('#edit-distrito-numero')!.value = dist.numero_distrito
+
+        modal.style.display = 'flex'
       })
     })
   }
@@ -2961,45 +3023,106 @@ async function bindAdmin() {
   }
 
   // ─── RECINTOS ────────────────────────────────────────────────────────────
-  const loadAdminRecintos = async () => {
+  let adminRecintosAllData: any[] = []
+  let adminRecintosCurrentPage = 1
+  let adminRecintosSearchTerm = ''
+
+  const loadAdminRecintos = async (searchTerm: string = '') => {
     const recintosList = document.querySelector<HTMLElement>('#admin-recintos-list')
+    const paginationContainer = document.querySelector<HTMLElement>('#admin-recintos-pagination')
     if (!recintosList) return
 
-    const { data: recintosData, error } = await supabase
-      .from('recintos')
-      .select('id, nombre, direccion, distritos(nombre)')
-      .eq('activo', true)
-      .order('nombre', { ascending: true })
+    let recintosData = cache.get<any[]>('admin_recintos')
 
-    if (error || !recintosData) {
-      recintosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando recintos</p>'
-      return
+    if (!recintosData) {
+      const { data, error } = await supabase
+        .from('recintos')
+        .select('id, nombre, direccion, distrito_id, distritos(id, nombre)')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+
+      if (error || !data) {
+        recintosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando recintos</p>'
+        return
+      }
+
+      recintosData = data
+      cache.set('admin_recintos', recintosData, 5)
     }
 
-    if (recintosData.length === 0) {
+    adminRecintosAllData = recintosData
+    let filtered = recintosData
+    if (searchTerm) {
+      filtered = recintosData.filter((r) =>
+        r.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.direccion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.distritos as any)?.nombre?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    if (filtered.length === 0) {
       recintosList.innerHTML = '<p class="empty">No hay recintos registrados</p>'
+      if (paginationContainer) paginationContainer.innerHTML = ''
       return
     }
 
-    recintosList.innerHTML = recintosData
+    const pageSize = 100
+    const state = pagination.calculate(filtered.length, adminRecintosCurrentPage, pageSize)
+    const pagedData = pagination.getPageItems(filtered, adminRecintosCurrentPage, pageSize)
+
+    recintosList.innerHTML = pagedData
       .map(
-        (r: any) => `<div class="mesa-item">
+        (r: any) => `<div class="mesa-item" style="justify-content:space-between;align-items:center;">
         <div class="mesa-info">
           <strong>${r.nombre}</strong>
           <span>${r.direccion || 'Sin dirección'}</span>
           <small style="color:#666;">${(r.distritos as any)?.nombre ?? 'Sin distrito'}</small>
         </div>
-        <button class="btn-delete-recinto" data-id="${r.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-edit-recinto" data-id="${r.id}" style="background:#007bff;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Editar</button>
+          <button class="btn-delete-recinto" data-id="${r.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+        </div>
       </div>`
       )
       .join('')
 
+    if (paginationContainer) {
+      const paginationHTML = pagination.generatePaginationHTML(state)
+      paginationContainer.innerHTML = paginationHTML
+      pagination.attachPaginationEvents('admin-recintos-pagination', (page) => {
+        adminRecintosCurrentPage = page
+        loadAdminRecintos(adminRecintosSearchTerm)
+      })
+    }
+
     recintosList.querySelectorAll<HTMLButtonElement>('.btn-delete-recinto').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('¿Eliminar este recinto?')) return
-        const { error } = await supabase.from('recintos').delete().eq('id', parseInt(btn.dataset.id as string))
-        if (error) alert('Error')
-        else loadAdminRecintos()
+        const id = parseInt(btn.dataset.id as string)
+        const { error } = await supabase.from('recintos').delete().eq('id', id)
+        if (error) alert('Error al eliminar')
+        else {
+          cache.remove('admin_recintos')
+          loadAdminRecintos(adminRecintosSearchTerm)
+        }
+      })
+    })
+
+    recintosList.querySelectorAll<HTMLButtonElement>('.btn-edit-recinto').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const recId = parseInt(btn.dataset.id as string)
+        const rec = adminRecintosAllData.find((r) => r.id === recId)
+        if (!rec) return
+
+        const modal = document.querySelector<HTMLElement>('#modal-edit-recinto')
+        if (!modal) return
+
+        document.querySelector<HTMLInputElement>('#edit-recinto-id')!.value = rec.id
+        document.querySelector<HTMLInputElement>('#edit-recinto-nombre')!.value = rec.nombre
+        document.querySelector<HTMLInputElement>('#edit-recinto-direccion')!.value = rec.direccion || ''
+        document.querySelector<HTMLSelectElement>('#edit-recinto-distrito')!.value = rec.distrito_id || ''
+
+        modal.style.display = 'flex'
       })
     })
   }
@@ -3198,10 +3321,114 @@ async function bindAdmin() {
 
   // Distritos
   const btnExportDistritos = document.querySelector<HTMLButtonElement>('#btn-export-distritos')
+  const btnImportDistritos = document.querySelector<HTMLButtonElement>('#btn-import-distritos')
+  const inputImportDistritos = document.querySelector<HTMLInputElement>('#input-import-distritos')
+
   if (btnExportDistritos) {
     btnExportDistritos.addEventListener('click', () => {
-      // TODO: Usar adminDistritosAllData cuando esté disponible
-      alert('Descargar Excel de distritos')
+      excelHandler.exportDistritos(adminDistritosAllData)
+    })
+  }
+
+  if (btnImportDistritos && inputImportDistritos) {
+    btnImportDistritos.addEventListener('click', () => inputImportDistritos.click())
+    inputImportDistritos.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      try {
+        const rawData = await excelHandler.leerArchivo(file)
+        let insertados = 0
+        for (const row of rawData) {
+          const nombre = row.Nombre?.toString().trim()
+          const numero = parseInt(row.Número || row.Numero)
+          if (!nombre || !numero) continue
+
+          const { error } = await supabase.from('distritos').insert({
+            nombre,
+            numero_distrito: numero,
+            municipio_id: 1,
+          })
+          if (!error) insertados++
+        }
+        alert(`✅ Se insertaron ${insertados} distritos`)
+        cache.remove('admin_distritos')
+        adminDistritosCurrentPage = 1
+        loadAdminDistritos()
+      } catch (err) {
+        alert('Error al procesar archivo: ' + err)
+      }
+    })
+  }
+
+  // Recintos
+  const btnExportRecintos = document.querySelector<HTMLButtonElement>('#btn-export-recintos')
+  const btnImportRecintos = document.querySelector<HTMLButtonElement>('#btn-import-recintos')
+  const inputImportRecintos = document.querySelector<HTMLInputElement>('#input-import-recintos')
+
+  if (btnExportRecintos) {
+    btnExportRecintos.addEventListener('click', () => {
+      excelHandler.exportRecintos(adminRecintosAllData)
+    })
+  }
+
+  if (btnImportRecintos && inputImportRecintos) {
+    btnImportRecintos.addEventListener('click', () => inputImportRecintos.click())
+    inputImportRecintos.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      try {
+        const rawData = await excelHandler.leerArchivo(file)
+        let insertados = 0
+        for (const row of rawData) {
+          const nombre = row.Nombre?.toString().trim()
+          const direccion = row.Dirección?.toString().trim() || row.Direccion?.toString().trim()
+          const distName = row.Distrito?.toString().trim()
+
+          if (!nombre) continue
+
+          // Buscar ID del distrito
+          let distId = null
+          if (distName) {
+            const dist = adminDistritosAllData.find((d: any) => d.nombre.toLowerCase() === distName.toLowerCase())
+            if (dist) distId = dist.id
+          }
+
+          const { error } = await supabase.from('recintos').insert({
+            nombre,
+            direccion,
+            distrito_id: distId,
+          })
+          if (!error) insertados++
+        }
+        alert(`✅ Se insertaron ${insertados} recintos`)
+        cache.remove('admin_recintos')
+        adminRecintosCurrentPage = 1
+        loadAdminRecintos()
+      } catch (err) {
+        alert('Error al procesar archivo: ' + err)
+      }
+    })
+  }
+
+  // ─── BÚSQUEDA Y FILTROS ────────────────────────────────────────────────────
+  
+  // Búsqueda de Distritos
+  const searchDistritosInput = document.querySelector<HTMLInputElement>('#admin-search-distritos')
+  if (searchDistritosInput) {
+    searchDistritosInput.addEventListener('input', (e) => {
+      adminDistritosSearchTerm = (e.target as HTMLInputElement).value
+      adminDistritosCurrentPage = 1
+      loadAdminDistritos(adminDistritosSearchTerm)
+    })
+  }
+
+  // Búsqueda de Recintos
+  const searchRecintosInput = document.querySelector<HTMLInputElement>('#admin-search-recintos')
+  if (searchRecintosInput) {
+    searchRecintosInput.addEventListener('input', (e) => {
+      adminRecintosSearchTerm = (e.target as HTMLInputElement).value
+      adminRecintosCurrentPage = 1
+      loadAdminRecintos(adminRecintosSearchTerm)
     })
   }
 
@@ -3213,16 +3440,6 @@ async function bindAdmin() {
   if (btnCloseEditUsuario) {
     btnCloseEditUsuario.addEventListener('click', () => {
       if (modalEditUsuario) modalEditUsuario.style.display = 'none'
-    })
-  }
-
-  // ─── CERRAR MODAL DE EDITAR RECINTO ────────────────────────────────────
-  const modalEditRecinto = document.querySelector<HTMLElement>('#modal-edit-recinto')
-  const btnCloseEditRecinto = document.querySelector<HTMLButtonElement>('#btn-close-edit-recinto')
-
-  if (btnCloseEditRecinto) {
-    btnCloseEditRecinto.addEventListener('click', () => {
-      if (modalEditRecinto) modalEditRecinto.style.display = 'none'
     })
   }
 
@@ -3255,6 +3472,93 @@ async function bindAdmin() {
     modalEditUsuario.addEventListener('click', (e) => {
       if (e.target === modalEditUsuario) {
         modalEditUsuario.style.display = 'none'
+      }
+    })
+  }
+
+  // Modal de editar distrito
+  const modalEditDistrito = document.querySelector<HTMLElement>('#modal-edit-distrito')
+  const formEditDistrito = document.querySelector<HTMLFormElement>('#form-edit-distrito')
+  const btnCloseEditDistrito = document.querySelector<HTMLButtonElement>('#btn-close-edit-distrito')
+
+  if (btnCloseEditDistrito) {
+    btnCloseEditDistrito.addEventListener('click', () => {
+      if (modalEditDistrito) modalEditDistrito.style.display = 'none'
+    })
+  }
+
+  if (formEditDistrito) {
+    formEditDistrito.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const distId = parseInt(document.querySelector<HTMLInputElement>('#edit-distrito-id')!.value)
+      const nombre = document.querySelector<HTMLInputElement>('#edit-distrito-nombre')!.value
+      const numero = parseInt(document.querySelector<HTMLInputElement>('#edit-distrito-numero')!.value)
+
+      const { error } = await supabase
+        .from('distritos')
+        .update({ nombre, numero_distrito: numero })
+        .eq('id', distId)
+
+      if (error) {
+        alert('Error al actualizar: ' + error.message)
+      } else {
+        alert('✅ Distrito actualizado')
+        if (modalEditDistrito) modalEditDistrito.style.display = 'none'
+        cache.remove('admin_distritos')
+        adminDistritosCurrentPage = 1
+        loadAdminDistritos()
+      }
+    })
+  }
+
+  if (modalEditDistrito) {
+    modalEditDistrito.addEventListener('click', (e) => {
+      if (e.target === modalEditDistrito) {
+        modalEditDistrito.style.display = 'none'
+      }
+    })
+  }
+
+  // Modal de editar recinto
+  const modalEditRecinto = document.querySelector<HTMLElement>('#modal-edit-recinto')
+  const formEditRecinto = document.querySelector<HTMLFormElement>('#form-edit-recinto')
+  const btnCloseEditRecinto = document.querySelector<HTMLButtonElement>('#btn-close-edit-recinto')
+
+  if (btnCloseEditRecinto) {
+    btnCloseEditRecinto.addEventListener('click', () => {
+      if (modalEditRecinto) modalEditRecinto.style.display = 'none'
+    })
+  }
+
+  if (formEditRecinto) {
+    formEditRecinto.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const recId = parseInt(document.querySelector<HTMLInputElement>('#edit-recinto-id')!.value)
+      const nombre = document.querySelector<HTMLInputElement>('#edit-recinto-nombre')!.value
+      const direccion = document.querySelector<HTMLInputElement>('#edit-recinto-direccion')!.value
+      const distritoId = parseInt(document.querySelector<HTMLSelectElement>('#edit-recinto-distrito')!.value)
+
+      const { error } = await supabase
+        .from('recintos')
+        .update({ nombre, direccion, distrito_id: distritoId })
+        .eq('id', recId)
+
+      if (error) {
+        alert('Error al actualizar: ' + error.message)
+      } else {
+        alert('✅ Recinto actualizado')
+        if (modalEditRecinto) modalEditRecinto.style.display = 'none'
+        cache.remove('admin_recintos')
+        adminRecintosCurrentPage = 1
+        loadAdminRecintos()
+      }
+    })
+  }
+
+  if (modalEditRecinto) {
+    modalEditRecinto.addEventListener('click', (e) => {
+      if (e.target === modalEditRecinto) {
+        modalEditRecinto.style.display = 'none'
       }
     })
   }
