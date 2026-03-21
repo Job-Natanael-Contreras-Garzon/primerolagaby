@@ -9,7 +9,7 @@ if (!app) {
 
 const rootApp = app
 
-type RouteId = 'home' | 'login' | 'panel'
+type RouteId = 'home' | 'login' | 'panel' | 'admin'
 type RoleId = 'veedor' | 'distrito' | 'colegio' | 'admin'
 
 // ─── DATOS DINÁMICOS DESDE SUPABASE ────────────────────────────────────────
@@ -99,10 +99,11 @@ function getRoute(): RouteId {
   const path = window.location.pathname
   if (path === '/login') return 'login'
   if (path === '/panel') return 'panel'
+  if (path === '/admin') return 'admin'
   return 'home'
 }
 
-function navigate(path: '/login' | '/' | '/panel') {
+function navigate(path: '/login' | '/' | '/panel' | '/admin') {
   window.history.pushState({}, '', path)
   renderRoute()
 }
@@ -369,6 +370,223 @@ function colegioTemplate() {
   `
 }
 
+function adminTemplate() {
+  return `
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">🔐 Administrador</p>
+          <h1>Control Total</h1>
+          <small>Sistema Electoral</small>
+        </div>
+
+        <nav class="menu" aria-label="Navegacion principal">
+          <button class="menu-link is-active" data-view="admin-dashboard" type="button">📊 Dashboard</button>
+          <button class="menu-link" data-view="admin-usuarios" type="button">👥 Usuarios</button>
+          <button class="menu-link" data-view="admin-distritos" type="button">🗺️ Distritos</button>
+          <button class="menu-link" data-view="admin-recintos" type="button">🏫 Recintos</button>
+          <button class="menu-link" data-view="admin-mesas" type="button">📋 Mesas</button>
+          <button class="menu-link" data-view="admin-imagenes" type="button">🖼️ Imágenes</button>
+          <button class="menu-link" data-view="admin-config" type="button">⚙️ Configuración</button>
+        </nav>
+
+        <div class="status-box">
+          <p>Sistema</p>
+          <strong>Activo</strong>
+          <span>Todos los datos</span>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <h2 id="admin-view-title">Dashboard</h2>
+          
+          <nav class="menu-horizontal" aria-label="Navegación de vistas">
+            <button class="menu-tab is-active" data-view="admin-dashboard" type="button">Dashboard</button>
+            <button class="menu-tab" data-view="admin-usuarios" type="button">Usuarios</button>
+            <button class="menu-tab" data-view="admin-distritos" type="button">Distritos</button>
+            <button class="menu-tab" data-view="admin-mesas" type="button">Mesas</button>
+            <button class="menu-tab" data-view="admin-imagenes" type="button">Imágenes</button>
+          </nav>
+
+          <div class="top-actions">
+            <button class="ghost-btn" data-go="/" type="button">Ir a reportar</button>
+            <button class="danger-btn" id="admin-logout-btn" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <!-- VIEW: DASHBOARD -->
+        <section id="view-admin-dashboard" class="view-root">
+          <article class="card">
+            <h3>📊 Dashboard General</h3>
+            <p>Estadísticas en tiempo real del sistema electoral</p>
+            
+            <div class="stats-grid" id="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px;">
+              <!-- Stats se cargarán dinámicamente -->
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>📈 Gráfica General de Votos</h3>
+            <div class="charts-container">
+              <div class="chart-wrapper">
+                <svg id="admin-pie-chart" width="280" height="280" viewBox="0 0 280 280"></svg>
+              </div>
+              <div id="admin-chart-legend" class="chart-legend"></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>🔴 Incidencias Pendientes</h3>
+            <div id="admin-incidencias-list" class="mesas-list"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: USUARIOS -->
+        <section id="view-admin-usuarios" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>➕ Crear Nuevo Usuario</h3>
+            <form id="admin-form-usuario" class="form-grid" style="margin-top: 12px;">
+              <label for="admin-user-nombre">Nombre</label>
+              <input id="admin-user-nombre" type="text" required />
+              
+              <label for="admin-user-apellido">Apellido</label>
+              <input id="admin-user-apellido" type="text" required />
+              
+              <label for="admin-user-email">Email</label>
+              <input id="admin-user-email" type="email" required />
+              
+              <label for="admin-user-rol">Rol</label>
+              <select id="admin-user-rol" required>
+                <option value="veedor">Veedor</option>
+                <option value="supervisor1">Responsable de Colegio</option>
+                <option value="supervisor2">Supervisor de Distrito</option>
+                <option value="admin">Administrador</option>
+              </select>
+              
+              <label for="admin-user-distrito">Distrito (si aplica)</label>
+              <select id="admin-user-distrito">
+                <option value="">Ninguno</option>
+              </select>
+
+              <label for="admin-user-recinto">Recinto (si aplica)</label>
+              <select id="admin-user-recinto">
+                <option value="">Ninguno</option>
+              </select>
+              
+              <button class="cta" type="submit" style="grid-column: 1 / -1;">Crear Usuario</button>
+            </form>
+          </article>
+
+          <article class="card">
+            <h3>📋 Listado de Usuarios</h3>
+            <div id="admin-usuarios-list" class="users-list" style="margin-top: 16px;"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: DISTRITOS -->
+        <section id="view-admin-distritos" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>➕ Crear Nuevo Distrito</h3>
+            <form id="admin-form-distrito" class="form-grid" style="margin-top: 12px;">
+              <label for="admin-dist-nombre">Nombre</label>
+              <input id="admin-dist-nombre" type="text" required />
+              
+              <label for="admin-dist-numero">Número</label>
+              <input id="admin-dist-numero" type="number" required />
+              
+              <button class="cta" type="submit" style="grid-column: 1 / -1;">Crear Distrito</button>
+            </form>
+          </article>
+
+          <article class="card">
+            <h3>📋 Listado de Distritos</h3>
+            <div id="admin-distritos-list" class="distritos-list" style="margin-top: 16px;"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: RECINTOS -->
+        <section id="view-admin-recintos" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>➕ Crear Nuevo Recinto</h3>
+            <form id="admin-form-recinto" class="form-grid" style="margin-top: 12px;">
+              <label for="admin-rec-nombre">Nombre del Recinto</label>
+              <input id="admin-rec-nombre" type="text" required />
+              
+              <label for="admin-rec-distrito">Distrito</label>
+              <select id="admin-rec-distrito" required>
+                <option value="">Selecciona un distrito</option>
+              </select>
+              
+              <label for="admin-rec-direccion">Dirección</label>
+              <input id="admin-rec-direccion" type="text" />
+              
+              <button class="cta" type="submit" style="grid-column: 1 / -1;">Crear Recinto</button>
+            </form>
+          </article>
+
+          <article class="card">
+            <h3>📋 Listado de Recintos</h3>
+            <div id="admin-recintos-list" class="recintos-list" style="margin-top: 16px;"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: MESAS -->
+        <section id="view-admin-mesas" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>🔍 Búsqueda de Mesas</h3>
+            <div class="search-input-wrapper" style="margin-top: 12px;">
+              <input id="admin-mesas-search" type="search" placeholder="Busca por número, colegio o estado..." />
+              <button type="button" id="admin-mesas-dropdown" class="search-dropdown-btn" title="Ver todas">▼</button>
+            </div>
+            <ul id="admin-mesas-results" class="search-list" style="margin-top: 12px;"></ul>
+          </article>
+
+          <article class="card">
+            <h3>📊 Resumen de Mesas</h3>
+            <div id="admin-mesas-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px;"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: IMÁGENES -->
+        <section id="view-admin-imagenes" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>🖼️ Galería de Actas</h3>
+            <p>Todas las imágenes de actas transmitidas</p>
+            <div id="admin-imagenes-gallery" class="imagenes-gallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px;"></div>
+          </article>
+        </section>
+
+        <!-- VIEW: CONFIGURACIÓN -->
+        <section id="view-admin-config" class="view-root" style="display: none;">
+          <article class="card">
+            <h3>⚙️ Configuración del Sistema</h3>
+            <p style="margin-top: 12px;">Administra la configuración global del monitoreo</p>
+            
+            <div style="margin-top: 16px;">
+              <label for="admin-config-cargo">Cargo a mostrar</label>
+              <select id="admin-config-cargo">
+                <option value="alcalde">Alcalde</option>
+                <option value="concejal">Concejal</option>
+                <option value="ambos">Ambos</option>
+              </select>
+
+              <label style="margin-top: 12px;">Elementos a mostrar</label>
+              <div style="margin-top: 8px;">
+                <label><input type="checkbox" id="admin-config-blancos" checked> Votos en blanco</label><br>
+                <label><input type="checkbox" id="admin-config-nulos" checked> Votos nulos</label><br>
+                <label><input type="checkbox" id="admin-config-validos" checked> Votos válidos</label>
+              </div>
+
+              <button class="cta" type="button" id="admin-btn-guardar-config" style="margin-top: 16px;">Guardar Configuración</button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  `
+}
+
 function panelTemplate() {
   const role = window.localStorage.getItem('authRole')
   
@@ -413,6 +631,7 @@ function panelTemplate() {
 
           <div class="top-actions">
             <button class="ghost-btn" data-go="/" type="button">Ir a reportar</button>
+            ${role === 'admin' ? `<button class="btn-link" data-go="/admin" type="button" style="color:#007bff;font-weight:bold;">🔐 Panel Admin</button>` : ''}
             <button class="danger-btn" id="logout-btn" type="button">Cerrar sesión</button>
           </div>
         </header>
@@ -1843,12 +2062,630 @@ async function bindColegio() {
   }
 }
 
+async function bindAdmin() {
+  // ─── NAVEGACIÓN DE VISTAS ────────────────────────────────────────────────
+  const adminMenuLinks = document.querySelectorAll<HTMLButtonElement>('.menu-link')
+  const adminMenuTabs = document.querySelectorAll<HTMLButtonElement>('.menu-tab')
+  const adminViewTitle = document.querySelector<HTMLElement>('#admin-view-title')
+  const adminLogoutBtn = document.querySelector<HTMLButtonElement>('#admin-logout-btn')
+
+  const adminShowView = (viewName: string) => {
+    const viewSections = document.querySelectorAll<HTMLElement>('.view-root')
+    viewSections.forEach((section) => (section.style.display = 'none'))
+
+    const targetView = document.querySelector<HTMLElement>(`#view-${viewName}`)
+    if (targetView) targetView.style.display = 'block'
+
+    // Actualizar título
+    const titleMap: { [key: string]: string } = {
+      'admin-dashboard': '📊 Dashboard',
+      'admin-usuarios': '👥 Usuarios',
+      'admin-distritos': '🗺️ Distritos',
+      'admin-recintos': '🏫 Recintos',
+      'admin-mesas': '📋 Mesas',
+      'admin-imagenes': '🖼️ Imágenes',
+      'admin-config': '⚙️ Configuración',
+    }
+    if (adminViewTitle) adminViewTitle.textContent = titleMap[viewName] || viewName
+  }
+
+  adminMenuLinks.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      adminMenuLinks.forEach((b) => b.classList.remove('is-active'))
+      adminMenuTabs.forEach((b) => b.classList.remove('is-active'))
+      btn.classList.add('is-active')
+      const correspondingTab = document.querySelector<HTMLButtonElement>(
+        `.menu-tab[data-view="${btn.dataset.view}"]`
+      )
+      if (correspondingTab) correspondingTab.classList.add('is-active')
+      adminShowView(btn.dataset.view || 'admin-dashboard')
+    })
+  })
+
+  adminMenuTabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      adminMenuLinks.forEach((b) => b.classList.remove('is-active'))
+      adminMenuTabs.forEach((b) => b.classList.remove('is-active'))
+      btn.classList.add('is-active')
+      const correspondingLink = document.querySelector<HTMLButtonElement>(
+        `.menu-link[data-view="${btn.dataset.view}"]`
+      )
+      if (correspondingLink) correspondingLink.classList.add('is-active')
+      adminShowView(btn.dataset.view || 'admin-dashboard')
+    })
+  })
+
+  // Logout
+  if (adminLogoutBtn) {
+    adminLogoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut()
+      window.localStorage.removeItem('authRole')
+      navigate('/login')
+    })
+  }
+
+  // ─── DASHBOARD ────────────────────────────────────────────────────────────
+  const loadAdminDashboard = async () => {
+    // Cargar estadísticas generales
+    const statsGrid = document.querySelector<HTMLElement>('#admin-stats-grid')
+    if (statsGrid) {
+      const [usuarios, distritos, mesas, transmisiones] = await Promise.all([
+        supabase.from('usuarios').select('id', { count: 'exact' }).eq('activo', true),
+        supabase.from('distritos').select('id', { count: 'exact' }).eq('activo', true),
+        supabase.from('mesas').select('id', { count: 'exact' }).eq('activo', true),
+        supabase.from('transmisiones').select('id', { count: 'exact' }),
+      ])
+
+      statsGrid.innerHTML = `
+        <div class="stat-card" style="padding:16px;border:1px solid #ddd;border-radius:8px;text-align:center;background:#f8f9fa;">
+          <div style="font-size:28px;font-weight:bold;color:#007bff;">${usuarios.count || 0}</div>
+          <div style="font-size:12px;color:#666;">Usuarios</div>
+        </div>
+        <div class="stat-card" style="padding:16px;border:1px solid #ddd;border-radius:8px;text-align:center;background:#f8f9fa;">
+          <div style="font-size:28px;font-weight:bold;color:#28a745;">${distritos.count || 0}</div>
+          <div style="font-size:12px;color:#666;">Distritos</div>
+        </div>
+        <div class="stat-card" style="padding:16px;border:1px solid #ddd;border-radius:8px;text-align:center;background:#f8f9fa;">
+          <div style="font-size:28px;font-weight:bold;color:#ffc107;">${mesas.count || 0}</div>
+          <div style="font-size:12px;color:#666;">Mesas</div>
+        </div>
+        <div class="stat-card" style="padding:16px;border:1px solid #ddd;border-radius:8px;text-align:center;background:#f8f9fa;">
+          <div style="font-size:28px;font-weight:bold;color:#dc3545;">${transmisiones.count || 0}</div>
+          <div style="font-size:12px;color:#666;">Transmisiones</div>
+        </div>
+      `
+    }
+
+    // Cargar gráfica de votos
+    const pieChartSvg = document.querySelector<SVGElement>('#admin-pie-chart')
+    const chartLegend = document.querySelector<HTMLElement>('#admin-chart-legend')
+
+    const drawAdminPieChart = (datos: any[]) => {
+      if (!pieChartSvg || !chartLegend) return
+      pieChartSvg.innerHTML = ''
+      chartLegend.innerHTML = ''
+
+      const total = datos.reduce((sum, d) => sum + d.total, 0)
+      if (total === 0) {
+        pieChartSvg.innerHTML = '<text x="140" y="140" text-anchor="middle" fill="#999">Sin datos</text>'
+        return
+      }
+
+      let currentAngle = -90
+      const radius = 80
+      const centerX = 140
+      const centerY = 140
+
+      datos.forEach((d) => {
+        const sliceAngle = (d.total / total) * 360
+        const startRad = (currentAngle * Math.PI) / 180
+        const endRad = ((currentAngle + sliceAngle) * Math.PI) / 180
+
+        const x1 = centerX + radius * Math.cos(startRad)
+        const y1 = centerY + radius * Math.sin(startRad)
+        const x2 = centerX + radius * Math.cos(endRad)
+        const y2 = centerY + radius * Math.sin(endRad)
+
+        const largeArc = sliceAngle > 180 ? 1 : 0
+        const path = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`
+
+        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        pathEl.setAttribute('d', path)
+        pathEl.setAttribute('fill', d.color)
+        pathEl.setAttribute('stroke', 'white')
+        pathEl.setAttribute('stroke-width', '2')
+        pieChartSvg?.appendChild(pathEl)
+
+        chartLegend!.innerHTML += `<div style="margin:8px 0;font-size:13px;">
+          <span style="display:inline-block;width:12px;height:12px;background:${d.color};margin-right:6px;"></span>
+          <strong>${d.sigla}</strong> ${d.total} votos (${((d.total / total) * 100).toFixed(1)}%)
+        </div>`
+
+        currentAngle += sliceAngle
+      })
+    }
+
+    const { data: monitorData, error: monitorErr } = await supabase
+      .from('vista_monitoreo')
+      .select('partido_sigla, partido_color, total_votos')
+      .eq('tipo_cargo', 'alcalde')
+      .order('total_votos', { ascending: false })
+
+    if (!monitorErr && monitorData) {
+      const chartData = monitorData.map((row: any) => ({
+        sigla: row.partido_sigla,
+        color: row.partido_color || '#999',
+        total: row.total_votos,
+      }))
+      drawAdminPieChart(chartData)
+    }
+
+    // Cargar incidencias pendientes
+    const incidenciasList = document.querySelector<HTMLElement>('#admin-incidencias-list')
+    if (incidenciasList) {
+      const { data: incidenciasData, error } = await supabase
+        .from('incidencias')
+        .select('id, justificativo, estado, created_at, mesas(numero_mesa), usuarios(nombre, apellido)')
+        .eq('estado', 'pendiente')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (!error && incidenciasData) {
+        if (incidenciasData.length === 0) {
+          incidenciasList.innerHTML = '<p class="empty" style="color:#28a745;font-weight:bold;">✓ No hay incidencias pendientes</p>'
+        } else {
+          incidenciasList.innerHTML = incidenciasData
+            .map(
+              (inc: any) => `<div class="mesa-item">
+              <div class="mesa-info">
+                <strong>Mesa ${inc.mesas?.numero_mesa ?? '?'}</strong>
+                <span>${inc.justificativo}</span>
+                <small style="color:#999">${new Date(inc.created_at).toLocaleString()}</small>
+              </div>
+            </div>`
+            )
+            .join('')
+        }
+      }
+    }
+  }
+
+  // ─── USUARIOS ─────────────────────────────────────────────────────────────
+  const loadAdminUsuarios = async () => {
+    const usuariosList = document.querySelector<HTMLElement>('#admin-usuarios-list')
+    if (!usuariosList) return
+
+    const { data: usuariosData, error } = await supabase
+      .from('usuarios')
+      .select('id, nombre, apellido, email, rol, activo, distritos(nombre)')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+
+    if (error || !usuariosData) {
+      usuariosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando usuarios</p>'
+      return
+    }
+
+    if (usuariosData.length === 0) {
+      usuariosList.innerHTML = '<p class="empty">No hay usuarios registrados</p>'
+      return
+    }
+
+    usuariosList.innerHTML = usuariosData
+      .map(
+        (u: any) => `<div class="mesa-item" style="justify-content:space-between;align-items:center;">
+        <div class="mesa-info">
+          <strong>${u.nombre} ${u.apellido}</strong>
+          <span>${u.email}</span>
+          <small style="color:#666;text-transform:capitalize;">${u.rol}${u.distritos ? ` • ${u.distritos.nombre}` : ''}</small>
+        </div>
+        <button class="btn-delete-user" data-id="${u.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Desactivar</button>
+      </div>`
+      )
+      .join('')
+
+    usuariosList.querySelectorAll<HTMLButtonElement>('.btn-delete-user').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Desactivar este usuario?')) return
+        const { error } = await supabase.from('usuarios').update({ activo: false }).eq('id', parseInt(btn.dataset.id as string))
+        if (error) alert('Error')
+        else loadAdminUsuarios()
+      })
+    })
+  }
+
+  // ─── DISTRITOS ────────────────────────────────────────────────────────────
+  const loadAdminDistritos = async () => {
+    const distritosList = document.querySelector<HTMLElement>('#admin-distritos-list')
+    if (!distritosList) return
+
+    const { data: distritosData, error } = await supabase
+      .from('distritos')
+      .select('id, nombre, numero_distrito, activo')
+      .eq('activo', true)
+      .order('numero_distrito', { ascending: true })
+
+    if (error || !distritosData) {
+      distritosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando distritos</p>'
+      return
+    }
+
+    if (distritosData.length === 0) {
+      distritosList.innerHTML = '<p class="empty">No hay distritos registrados</p>'
+      return
+    }
+
+    distritosList.innerHTML = distritosData
+      .map(
+        (d: any) => `<div class="mesa-item">
+        <div class="mesa-info">
+          <strong>Distrito ${d.numero_distrito}</strong>
+          <span>${d.nombre}</span>
+        </div>
+        <button class="btn-delete-distrito" data-id="${d.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+      </div>`
+      )
+      .join('')
+
+    distritosList.querySelectorAll<HTMLButtonElement>('.btn-delete-distrito').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Eliminar este distrito?')) return
+        const { error } = await supabase.from('distritos').delete().eq('id', parseInt(btn.dataset.id as string))
+        if (error) alert('Error')
+        else loadAdminDistritos()
+      })
+    })
+  }
+
+  // ─── MESAS ────────────────────────────────────────────────────────────────
+  const loadAdminMesas = async () => {
+    const mesasSearch = document.querySelector<HTMLInputElement>('#admin-mesas-search')
+    const mesasResults = document.querySelector<HTMLUListElement>('#admin-mesas-results')
+    const mesasStats = document.querySelector<HTMLElement>('#admin-mesas-stats')
+
+    if (mesasStats) {
+      const mesasAll = await supabase.from('mesas').select('estado')
+      const estados: { [key: string]: number } = {
+        pendiente: 0,
+        transmitida: 0,
+        incidencia: 0,
+        no_validada: 0,
+      }
+      mesasAll.data?.forEach((m: any) => {
+        estados[m.estado]++
+      })
+
+      mesasStats.innerHTML = `
+        <div style="padding:12px;border-radius:6px;background:#fef3cd;">
+          <strong style="color:#856404;">${estados.pendiente}</strong><br><small>Pendientes</small>
+        </div>
+        <div style="padding:12px;border-radius:6px;background:#d1ecf1;">
+          <strong style="color:#0c5460;">${estados.transmitida}</strong><br><small>Transmitidas</small>
+        </div>
+        <div style="padding:12px;border-radius:6px;background:#f8d7da;">
+          <strong style="color:#721c24;">${estados.incidencia}</strong><br><small>Incidencias</small>
+        </div>
+        <div style="padding:12px;border-radius:6px;background:#e2e3e5;">
+          <strong>${estados.no_validada}</strong><br><small>No validadas</small>
+        </div>
+      `
+    }
+
+    // Search
+    if (mesasSearch && mesasResults) {
+      const handleMesasSearch = async (query: string) => {
+        if (!query.trim()) {
+          mesasResults.innerHTML = ''
+          return
+        }
+
+        const { data: searchResults, error } = await supabase
+          .from('mesas')
+          .select('id, numero_mesa, estado, recintos(nombre)')
+          .ilike('numero_mesa', `%${query}%`)
+          .limit(20)
+
+        if (error || !searchResults) {
+          mesasResults.innerHTML = '<li class="empty">Error buscando mesas</li>'
+          return
+        }
+
+        mesasResults.innerHTML = searchResults
+          .map(
+            (m: any) => `<li class="search-item">
+            <strong>Mesa ${m.numero_mesa}</strong><br>
+            <small>${m.recintos?.nombre ?? 'Sin recinto'} • Estado: ${m.estado}</small>
+          </li>`
+          )
+          .join('')
+      }
+
+      mesasSearch.addEventListener('input', (e) => {
+        handleMesasSearch((e.target as HTMLInputElement).value)
+      })
+    }
+  }
+
+  // ─── IMÁGENES ─────────────────────────────────────────────────────────────
+  const loadAdminImagenes = async () => {
+    const gallery = document.querySelector<HTMLElement>('#admin-imagenes-gallery')
+    if (!gallery) return
+
+    gallery.innerHTML = '<p class="empty">Cargando imágenes...</p>'
+
+    const { data: transmisiones, error } = await supabase
+      .from('transmisiones')
+      .select('id, imagen_acta_url, created_at, mesas(numero_mesa), usuarios(nombre)')
+      .eq('es_valida', true)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error || !transmisiones) {
+      gallery.innerHTML = '<p class="empty" style="color:#c00">Error cargando imágenes</p>'
+      return
+    }
+
+    if (transmisiones.length === 0) {
+      gallery.innerHTML = '<p class="empty">No hay imágenes de actas</p>'
+      return
+    }
+
+    gallery.innerHTML = transmisiones
+      .map(
+        (t: any) => `<div style="cursor:pointer;border:1px solid #ddd;border-radius:6px;overflow:hidden;" title="Haz clic para ampliar">
+        ${t.imagen_acta_url ? `<img src="${t.imagen_acta_url}" style="width:100%;height:150px;object-fit:cover;" />` : '<div style="width:100%;height:150px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;">Sin imagen</div>'}
+        <div style="padding:8px;font-size:11px;background:#f8f9fa;">
+          <strong>Mesa ${(t.mesas as any)?.numero_mesa ?? '?'}</strong><br>
+          ${new Date(t.created_at).toLocaleDateString()}
+        </div>
+      </div>`
+      )
+      .join('')
+
+    // Modal para ampliar imágenes
+    gallery.querySelectorAll<HTMLElement>('[title*="Haz clic"]').forEach((img) => {
+      img.addEventListener('click', () => {
+        const src = img.querySelector('img')?.src
+        if (src) {
+          alert('Modal de imagen:\n\n' + src + '\n\n(Implementar lightbox aquí)')
+        }
+      })
+    })
+  }
+
+  // ─── RECINTOS ────────────────────────────────────────────────────────────
+  const loadAdminRecintos = async () => {
+    const recintosList = document.querySelector<HTMLElement>('#admin-recintos-list')
+    if (!recintosList) return
+
+    const { data: recintosData, error } = await supabase
+      .from('recintos')
+      .select('id, nombre, direccion, distritos(nombre)')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+
+    if (error || !recintosData) {
+      recintosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando recintos</p>'
+      return
+    }
+
+    if (recintosData.length === 0) {
+      recintosList.innerHTML = '<p class="empty">No hay recintos registrados</p>'
+      return
+    }
+
+    recintosList.innerHTML = recintosData
+      .map(
+        (r: any) => `<div class="mesa-item">
+        <div class="mesa-info">
+          <strong>${r.nombre}</strong>
+          <span>${r.direccion || 'Sin dirección'}</span>
+          <small style="color:#666;">${(r.distritos as any)?.nombre ?? 'Sin distrito'}</small>
+        </div>
+        <button class="btn-delete-recinto" data-id="${r.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Eliminar</button>
+      </div>`
+      )
+      .join('')
+
+    recintosList.querySelectorAll<HTMLButtonElement>('.btn-delete-recinto').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Eliminar este recinto?')) return
+        const { error } = await supabase.from('recintos').delete().eq('id', parseInt(btn.dataset.id as string))
+        if (error) alert('Error')
+        else loadAdminRecintos()
+      })
+    })
+  }
+
+  // ─── CREAR USUARIOS ────────────────────────────────────────────────────
+  const formUsuario = document.querySelector<HTMLFormElement>('#admin-form-usuario')
+  const distritosSelect = document.querySelector<HTMLSelectElement>('#admin-user-distrito')
+
+  // Cargar distritos en el select
+  const loadDistritosSelect = async () => {
+    if (distritosSelect) {
+      const { data: distritos } = await supabase
+        .from('distritos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre')
+
+      if (distritos) {
+        distritosSelect.innerHTML = '<option value="">Ninguno</option>'
+        distritos.forEach((d) => {
+          const opt = document.createElement('option')
+          opt.value = d.id.toString()
+          opt.textContent = d.nombre
+          distritosSelect.appendChild(opt)
+        })
+      }
+    }
+  }
+  await loadDistritosSelect()
+
+  if (formUsuario) {
+    formUsuario.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const nombre = (document.querySelector<HTMLInputElement>('#admin-user-nombre')?.value || '').trim()
+      const apellido = (document.querySelector<HTMLInputElement>('#admin-user-apellido')?.value || '').trim()
+      const email = (document.querySelector<HTMLInputElement>('#admin-user-email')?.value || '').trim()
+      const rol = (document.querySelector<HTMLSelectElement>('#admin-user-rol')?.value || '') as RoleId
+      const distId = (document.querySelector<HTMLSelectElement>('#admin-user-distrito')?.value || '') as string
+
+      if (!nombre || !apellido || !email || !rol) {
+        alert('Completa todos los campos requeridos')
+        return
+      }
+
+      // Crear usuario en Supabase Auth
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password: Math.random().toString(36).slice(2, 10),
+        email_confirm: true,
+      })
+
+      if (error) {
+        alert(`Error creando usuario: ${error.message}`)
+        return
+      }
+
+      // Insertar en tabla de usuarios
+      const { error: insertErr } = await supabase.from('usuarios').insert({
+        auth_id: data.user.id,
+        nombre,
+        apellido,
+        email,
+        rol,
+        distrito_id: distId ? parseInt(distId) : null,
+      })
+
+      if (insertErr) {
+        alert(`Error: ${insertErr.message}`)
+        return
+      }
+
+      alert('✅ Usuario creado exitosamente')
+      formUsuario.reset()
+      loadAdminUsuarios()
+    })
+  }
+
+  // ─── CREAR DISTRITOS ────────────────────────────────────────────────────
+  const formDistrito = document.querySelector<HTMLFormElement>('#admin-form-distrito')
+  if (formDistrito) {
+    formDistrito.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const nombre = (document.querySelector<HTMLInputElement>('#admin-dist-nombre')?.value || '').trim()
+      const numero = parseInt(document.querySelector<HTMLInputElement>('#admin-dist-numero')?.value || '0')
+
+      if (!nombre || !numero) {
+        alert('Completa todos los campos')
+        return
+      }
+
+      const { error } = await supabase.from('distritos').insert({
+        nombre,
+        numero_distrito: numero,
+        municipio_id: 1, // Asumiendo municipio default
+      })
+
+      if (error) {
+        alert(`Error: ${error.message}`)
+        return
+      }
+
+      alert('✅ Distrito creado exitosamente')
+      formDistrito.reset()
+      loadAdminDistritos()
+    })
+  }
+
+  // ─── CREAR RECINTOS ────────────────────────────────────────────────────
+  const formRecinto = document.querySelector<HTMLFormElement>('#admin-form-recinto')
+  const recintoDistritoSelect = document.querySelector<HTMLSelectElement>('#admin-rec-distrito')
+
+  const loadDistritosRecinto = async () => {
+    if (recintoDistritoSelect) {
+      const { data: distritos } = await supabase
+        .from('distritos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre')
+
+      if (distritos) {
+        recintoDistritoSelect.innerHTML = '<option value="">Selecciona un distrito</option>'
+        distritos.forEach((d) => {
+          const opt = document.createElement('option')
+          opt.value = d.id.toString()
+          opt.textContent = d.nombre
+          recintoDistritoSelect.appendChild(opt)
+        })
+      }
+    }
+  }
+  await loadDistritosRecinto()
+
+  if (formRecinto) {
+    formRecinto.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const nombre = (document.querySelector<HTMLInputElement>('#admin-rec-nombre')?.value || '').trim()
+      const distritoId = parseInt(recintoDistritoSelect?.value || '0')
+      const direccion = (document.querySelector<HTMLInputElement>('#admin-rec-direccion')?.value || '').trim()
+
+      if (!nombre || !distritoId) {
+        alert('Completa los campos requeridos')
+        return
+      }
+
+      const { error } = await supabase.from('recintos').insert({
+        nombre,
+        distrito_id: distritoId,
+        direccion: direccion || null,
+      })
+
+      if (error) {
+        alert(`Error: ${error.message}`)
+        return
+      }
+
+      alert('✅ Recinto creado exitosamente')
+      formRecinto.reset()
+      loadAdminRecintos()
+    })
+  }
+
+  // ─── CARGAR TODAS LAS VISTAS INICIALES ──────────────────────────────────
+  await loadAdminDashboard()
+  await loadAdminUsuarios()
+  await loadAdminDistritos()
+  await loadAdminRecintos()
+  await loadAdminMesas()
+  await loadAdminImagenes()
+
+  // ─── REALTIME UPDATES ───────────────────────────────────────────────────
+  const adminChannel = supabase
+    .channel('admin-realtime')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transmisiones' }, () => {
+      loadAdminDashboard()
+      loadAdminImagenes()
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'incidencias' }, () => {
+      loadAdminDashboard()
+    })
+    .subscribe()
+
+  // Cleanup
+  window.addEventListener('popstate', () => {
+    adminChannel.unsubscribe()
+  })
+}
+
 function bindNavigationLinks() {
   const navTargets = document.querySelectorAll<HTMLElement>('[data-go]')
   navTargets.forEach((target) => {
     target.addEventListener('click', () => {
       const path = target.dataset.go
-      if (path === '/' || path === '/login' || path === '/panel') {
+      if (path === '/' || path === '/login' || path === '/panel' || path === '/admin') {
         navigate(path)
       }
     })
@@ -1864,16 +2701,28 @@ async function renderRoute() {
     return
   }
 
+  // Verificar que solo admin acceda a /admin
+  if (route === 'admin') {
+    const role = window.localStorage.getItem('authRole')
+    if (role !== 'admin') {
+      alert('⚠️ Acceso denegado: Solo administradores')
+      navigate('/')
+      return
+    }
+  }
+
   if (route === 'home') rootApp.innerHTML = homeTemplate()
   if (route === 'login') rootApp.innerHTML = loginTemplate()
   if (route === 'panel') rootApp.innerHTML = panelTemplate()
+  if (route === 'admin') rootApp.innerHTML = adminTemplate()
 
-  document.body.classList.remove('route-home', 'route-login', 'route-panel')
+  document.body.classList.remove('route-home', 'route-login', 'route-panel', 'route-admin')
   document.body.classList.add(`route-${route}`)
 
   bindNavigationLinks()
   if (route === 'home') bindPublicHome()
   if (route === 'login') bindLogin()
+  if (route === 'admin') bindAdmin()
   if (route === 'panel') {
     const role = window.localStorage.getItem('authRole')
     if (role === 'colegio') {
