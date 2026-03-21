@@ -1,9 +1,5 @@
 import './style.css'
 import { supabase } from './utils/supabase'
-import { cache } from './utils/cache'
-import { excelHandler } from './utils/excel-handler'
-import { chartManager } from './utils/apexcharts-manager'
-import { pagination } from './utils/pagination'
 import { loginTemplate } from './templates/login'
 import { bindLogin } from './bindings/login'
 import { veedorTemplate, bindVeedor } from './roles/veedor'
@@ -29,7 +25,6 @@ let cargos: { id: number; nombre: string }[] = [
   { id: 1, nombre: 'Alcalde' },
   { id: 2, nombre: 'Concejal' },
 ]
-let candidatos: { id: number; nombre: string; partido_id: number; cargo_id: number }[] = []
 let mesas: { id: number; numero: string; colegio: string; distrito: string; estado: string }[] = []
 
 async function loadCatalogos() {
@@ -198,10 +193,10 @@ document.addEventListener('click', (e) => {
 })
 
 // Navigation con popstate (botón atrás del navegador)
-window.addEventListener('popstate', renderRoute)
+window.addEventListener('popstate', renderRoute as any)
 
 // Al cargar, si no está en login y no está logueado, ir a login
-window.addEventListener('load', async () => {
+document.addEventListener('DOMContentLoaded', async () => {
   await loadCatalogos()
   const route = getRoute()
   if (route !== 'login') {
@@ -218,7 +213,3 @@ window.addEventListener('load', async () => {
 (window as any).supabase = supabase
 (window as any).navigate = navigate
 (window as any).renderRoute = renderRoute
-(window as any).colegiosMock = colegiosMock
-(window as any).partidos = partidos
-(window as any).cargos = cargos
-(window as any).mesas = mesas

@@ -106,11 +106,10 @@ export async function bindVeedor(): Promise<void> {
     const mesaInput = document.querySelector<HTMLInputElement>('#veedor-mesa')
     const fotoInput = document.querySelector<HTMLInputElement>('#veedor-foto')
     const mesa = mesaInput?.value?.trim() || ''
-    const foto = fotoInput?.value || ''
+    const foto = Boolean(fotoInput?.value)
     
     // Verificar candidatos
     let todosCargosCompletos = true
-    const allInputs = document.querySelectorAll<HTMLInputElement>('.candidatos-grid input[type="number"]')
     
     for (const cargo of cargos) {
       if ((cargoVotes[cargo.id] || 0) === 0) {
@@ -161,12 +160,28 @@ export async function bindVeedor(): Promise<void> {
       console.warn('⚠️ Supabase no disponible, usando datos locales:', error)
       // Fallback: usar colegiosMock de window si está disponible
       const globalColegios = (window as any).colegiosMock || []
-      const globalPartidos = (window as any).partidos || []
       
       if (globalColegios.length > 0) {
         console.log('✓ Usando colegios locales:', globalColegios.length)
-        const distritos = [...new Set(globalColegios.map((c: any) => ({ id: 0, nombre: c.distrito })))]
-        return { distritos, colegios: globalColegios }
+        
+        // Crear lista de distritos únicos CON IDs correctos
+        const distritosMap = new Map<string, { id: number; nombre: string }>()
+        globalColegios.forEach((c: any, idx: number) => {
+          if (!distritosMap.has(c.distrito)) {
+            distritosMap.set(c.distrito, { id: idx + 1, nombre: c.distrito })
+          }
+        })
+        
+        const distritos = Array.from(distritosMap.values())
+        
+        // Normalizar colegios para que tengan distrito_id
+        const colegios = globalColegios.map((c: any) => ({
+          ...c,
+          id: c.recinto_id || Math.random(),
+          distrito_id: Array.from(distritosMap.values()).find(d => d.nombre === c.distrito)?.id || 0
+        }))
+        
+        return { distritos, colegios }
       }
       
       return { distritos: [], colegios: [] }
@@ -195,10 +210,10 @@ export async function bindVeedor(): Promise<void> {
         if (colegioSelect) {
           colegioSelect.innerHTML = '<option value="">Selecciona colegio</option>'
           
-          const selectedDistritoId = distritoSelect.value
-          const colegiosDelDistrito = colegios.filter(c => c.distrito_id === selectedDistritoId)
+          const selectedDistritoId = parseInt(distritoSelect.value)
+          const colegiosDelDistrito = colegios.filter((c: any) => c.distrito_id === selectedDistritoId)
           
-          colegiosDelDistrito.forEach(c => {
+          colegiosDelDistrito.forEach((c: any) => {
             const option = document.createElement('option')
             option.value = c.id
             option.textContent = c.nombre
