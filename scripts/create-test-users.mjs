@@ -82,6 +82,15 @@ const testUsers = [
     distrito: null,
     recinto: null,
   },
+  {
+    email: 'lector@electoral.test',
+    password: 'Lector123!',
+    nombre: 'Roberto',
+    apellido: 'Carrasco',
+    rol: 'lector',
+    distrito: null,
+    recinto: null,
+  },
 ]
 
 async function createTestUsers() {

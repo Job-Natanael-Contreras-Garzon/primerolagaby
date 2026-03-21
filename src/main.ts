@@ -13,8 +13,8 @@ if (!app) {
 
 const rootApp = app
 
-type RouteId = 'home' | 'login' | 'panel' | 'admin'
-type RoleId = 'veedor' | 'distrito' | 'colegio' | 'admin'
+type RouteId = 'home' | 'login' | 'panel' | 'admin' | 'carrasco'
+type RoleId = 'veedor' | 'distrito' | 'colegio' | 'admin' | 'lector'
 
 // ─── DATOS DINÁMICOS DESDE SUPABASE ────────────────────────────────────────
 // Estos arrays se llenan con loadCatalogos() al iniciar la app
@@ -104,10 +104,11 @@ function getRoute(): RouteId {
   if (path === '/login') return 'login'
   if (path === '/panel') return 'panel'
   if (path === '/admin') return 'admin'
+  if (path === '/carrasco') return 'carrasco'
   return 'home'
 }
 
-function navigate(path: '/login' | '/' | '/panel' | '/admin') {
+function navigate(path: '/login' | '/' | '/panel' | '/admin' | '/carrasco') {
   window.history.pushState({}, '', path)
   renderRoute()
 }
@@ -151,6 +152,7 @@ function getRoleLabel() {
   if (role === 'distrito') return 'Supervisor de Distrito'
   if (role === 'colegio') return 'Responsable de Colegio'
   if (role === 'veedor') return 'Veedor'
+  if (role === 'lector') return 'Lector Electoral'
   return 'Invitado'
 }
 
@@ -698,6 +700,302 @@ function adminTemplate() {
         </form>
       </article>
     </div>
+  `
+}
+
+// ════════════════════════════════════════════════════════════════
+// TEMPLATE: LECTOR (Monitoreo General de Resultados)
+// ════════════════════════════════════════════════════════════════
+
+function lectorTemplate() {
+  return `
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">Panel de Monitoreo</p>
+          <h1>Lector Electoral</h1>
+          <small>Sesion activa: ${getRoleLabel()}</small>
+        </div>
+
+        <nav class="menu" aria-label="Navegacion principal">
+          <button class="menu-link is-active" data-view="resumen" type="button">📊 Resumen General</button>
+          <button class="menu-link" data-view="distritos" type="button">🗺️ Por Distrito</button>
+          <button class="menu-link" data-view="colegios" type="button">🏫 Por Colegio</button>
+          <button class="menu-link" data-view="graficos" type="button">📈 Gráficos</button>
+        </nav>
+
+        <div class="status-box">
+          <p>Estado General</p>
+          <strong id="lector-status">Cargando...</strong>
+          <span id="lector-mesas">-- mesas procesadas</span>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <h2 id="lector-title">Resumen General</h2>
+          
+          <nav class="menu-horizontal" aria-label="Vistas">
+            <button class="menu-tab is-active" data-view="resumen" type="button">Resumen</button>
+            <button class="menu-tab" data-view="distritos" type="button">Distritos</button>
+            <button class="menu-tab" data-view="colegios" type="button">Colegios</button>
+            <button class="menu-tab" data-view="graficos" type="button">Gráficos</button>
+          </nav>
+
+          <div class="top-actions">
+            <button class="ghost-btn" data-go="/" type="button">Ir a reportar</button>
+            <button class="danger-btn" id="logout-btn" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <!-- VISTA: RESUMEN GENERAL -->
+        <div id="vista-resumen" class="content-view is-active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Total de Mesas</span>
+              <strong class="stat-value" id="total-mesas">0</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Mesas Transmitidas</span>
+              <strong class="stat-value" id="mesas-transmitidas">0</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Porcentaje</span>
+              <strong class="stat-value" id="porcentaje-transmitidas">0%</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Distritos Procesados</span>
+              <strong class="stat-value" id="distritos-procesados">0</strong>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Resumen por Partido (Nacional)</h3>
+            <div id="resumen-partidos" class="parties-grid">
+              <!-- Se llena dinámicamente -->
+            </div>
+          </div>
+
+          <div id="grafico-resumen" style="min-height: 300px;">
+            <!-- Gráfico se inserta aquí -->
+          </div>
+        </div>
+
+        <!-- VISTA: DISTRITOS -->
+        <div id="vista-distritos" class="content-view">
+          <div class="selector-group">
+            <label for="select-distrito">Seleccionar Distrito:</label>
+            <select id="select-distrito">
+              <option value="">-- Cargando distritos --</option>
+            </select>
+          </div>
+
+          <div id="detalle-distrito" style="display: none;">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-label">Mesas en Distrito</span>
+                <strong class="stat-value" id="mesas-distrito">0</strong>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Mesas Transmitidas</span>
+                <strong class="stat-value" id="mesas-tx-distrito">0</strong>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Avance</span>
+                <strong class="stat-value" id="avance-distrito">0%</strong>
+              </div>
+            </div>
+
+            <h3>Resultados por Partido</h3>
+            <div id="resultados-distrito" class="parties-list">
+              <!-- Se llena dinámicamente -->
+            </div>
+
+            <div id="grafico-distrito" style="min-height: 300px; margin-top: 20px;">
+              <!-- Gráfico de distrito -->
+            </div>
+          </div>
+        </div>
+
+        <!-- VISTA: COLEGIOS -->
+        <div id="vista-colegios" class="content-view">
+          <div class="selector-group">
+            <label for="select-colegio-distrito">Seleccionar Distrito:</label>
+            <select id="select-colegio-distrito">
+              <option value="">-- Cargando distritos --</option>
+            </select>
+          </div>
+
+          <div class="selector-group">
+            <label for="select-colegio">Seleccionar Colegio:</label>
+            <select id="select-colegio" disabled>
+              <option value="">-- Selecciona un distrito primero --</option>
+            </select>
+          </div>
+
+          <div id="detalle-colegio" style="display: none;">
+            <h3 id="nombre-colegio"></h3>
+            
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-label">Mesas en Colegio</span>
+                <strong class="stat-value" id="mesas-colegio">0</strong>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Mesas Transmitidas</span>
+                <strong class="stat-value" id="mesas-tx-colegio">0</strong>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Avance</span>
+                <strong class="stat-value" id="avance-colegio">0%</strong>
+              </div>
+            </div>
+
+            <h4>Estado de Mesas</h4>
+            <table class="mesa-table">
+              <thead>
+                <tr>
+                  <th>Mesa N°</th>
+                  <th>Habilitados</th>
+                  <th>Estado</th>
+                  <th>Votos Procesados</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-mesas-colegio">
+                <!-- Se llena dinámicamente -->
+              </tbody>
+            </table>
+
+            <div id="grafico-colegio" style="min-height: 300px; margin-top: 20px;">
+              <!-- Gráfico de colegio -->
+            </div>
+          </div>
+        </div>
+
+        <!-- VISTA: GRÁFICOS -->
+        <div id="vista-graficos" class="content-view">
+          <h3>Gráficos Nacionales</h3>
+          <div id="grafico-nacional" style="min-height: 400px;">
+            <!-- Gráfico nacional -->
+          </div>
+
+          <h3 style="margin-top: 40px;">Progreso de Transmisión</h3>
+          <div id="grafico-progreso" style="min-height: 300px;">
+            <!-- Gráfico de progreso -->
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <style>
+      .selector-group {
+        margin: 15px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .selector-group label {
+        font-weight: 600;
+        color: #333;
+      }
+
+      .selector-group select {
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+      }
+
+      .selector-group select:disabled {
+        background: #f5f5f5;
+        cursor: not-allowed;
+        color: #999;
+      }
+
+      .content-view {
+        display: none;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      .content-view.is-active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .parties-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 15px 0;
+      }
+
+      .party-card {
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 15px;
+        text-align: center;
+      }
+
+      .party-card strong {
+        display: block;
+        font-size: 18px;
+        color: #007bff;
+        margin: 8px 0;
+      }
+
+      .mesa-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+      }
+
+      .mesa-table th,
+      .mesa-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .mesa-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+      }
+
+      .mesa-table tr:hover {
+        background: #f5f5f5;
+      }
+
+      .state-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .state-badge.transmitida {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .state-badge.pendiente {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .state-badge.incidencia {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
   `
 }
 
@@ -1399,6 +1697,8 @@ function bindLogin() {
       // Navegar según el rol
       if (rol === 'veedor') {
         navigate('/')
+      } else if (rol === 'lector') {
+        navigate('/carrasco')
       } else {
         navigate('/panel')
       }
@@ -2975,13 +3275,243 @@ async function bindAdmin() {
   })
 }
 
+// ════════════════════════════════════════════════════════════════
+// BIND: LECTOR (Monitoreo General)
+// ════════════════════════════════════════════════════════════════
+
+async function bindCarrasco() {
+  // ────────────────────────────────────────────────────────────────
+  // 1. CARGAR DATOS INICIALES
+  // ────────────────────────────────────────────────────────────────
+
+  const loadResumenGeneral = async () => {
+    // Cargar todas las mesas y sus estados
+    const { data: mesasData } = await supabase
+      .from('mesas')
+      .select('id, estado')
+
+    if (!mesasData) return
+
+    const totalMesas = mesasData.length
+    const mesasTransmitidas = mesasData.filter((m: any) => m.estado === 'transmitida').length
+    const porcentaje = totalMesas > 0 ? Math.round((mesasTransmitidas / totalMesas) * 100) : 0
+
+    document.getElementById('total-mesas')!.textContent = totalMesas.toString()
+    document.getElementById('mesas-transmitidas')!.textContent = mesasTransmitidas.toString()
+    document.getElementById('porcentaje-transmitidas')!.textContent = porcentaje + '%'
+
+    // Cargar distritos
+    const { data: distritosData } = await supabase.from('distritos').select('id').eq('activo', true)
+    document.getElementById('distritos-procesados')!.textContent = distritosData?.length.toString() || '0'
+
+    // Cargar resultados por partido
+    const { data: resultadosData } = await supabase
+      .from('resultados_transmision')
+      .select('partidos(nombre), votos')
+
+    const partidosMap = new Map<string, number>()
+    resultadosData?.forEach((r: any) => {
+      const partidoNombre = r.partidos?.nombre || 'Desconocido'
+      partidosMap.set(partidoNombre, (partidosMap.get(partidoNombre) || 0) + r.votos)
+    })
+
+    const partidosHtml = Array.from(partidosMap.entries())
+      .map(
+        ([partido, votos]) => `
+      <div class="party-card">
+        <small>${partido}</small>
+        <strong>${votos.toLocaleString()}</strong>
+        <span style="font-size:12px;color:#666;">votos</span>
+      </div>
+    `
+      )
+      .join('')
+
+    document.getElementById('resumen-partidos')!.innerHTML = partidosHtml || '<p>No hay datos aún</p>'
+  }
+
+  const loadDistritos = async () => {
+    const { data: distritosData } = await supabase
+      .from('distritos')
+      .select('id, nombre, numero_distrito')
+      .eq('activo', true)
+      .order('numero_distrito', { ascending: true })
+
+    const selector = document.getElementById('select-distrito') as HTMLSelectElement
+    const selectorColegio = document.getElementById('select-colegio-distrito') as HTMLSelectElement
+
+    selector.innerHTML =
+      '<option value="">-- Seleccionar Distrito --</option>' +
+      (distritosData?.map((d: any) => `<option value="${d.id}">${d.numero_distrito} - ${d.nombre}</option>`).join('') || '')
+
+    selectorColegio.innerHTML = selector.innerHTML
+
+    selector.addEventListener('change', loadDetalleDistrito)
+    selectorColegio.addEventListener('change', loadColegiosPorDistrito)
+  }
+
+  const loadDetalleDistrito = async () => {
+    const distritoId = (document.getElementById('select-distrito') as HTMLSelectElement).value
+    if (!distritoId) {
+      document.getElementById('detalle-distrito')!.style.display = 'none'
+      return
+    }
+
+    // Cargar mesas del distrito
+    const { data: mesasData } = await supabase
+      .from('mesas')
+      .select('id, estado')
+      .in(
+        'recinto_id',
+        (
+          await supabase
+            .from('recintos')
+            .select('id')
+            .eq('distrito_id', parseInt(distritoId))
+        ).data?.map((r: any) => r.id) || []
+      )
+
+    const totalMesas = mesasData?.length || 0
+    const mesasTransmitidas = mesasData?.filter((m: any) => m.estado === 'transmitida').length || 0
+    const avance = totalMesas > 0 ? Math.round((mesasTransmitidas / totalMesas) * 100) : 0
+
+    document.getElementById('mesas-distrito')!.textContent = totalMesas.toString()
+    document.getElementById('mesas-tx-distrito')!.textContent = mesasTransmitidas.toString()
+    document.getElementById('avance-distrito')!.textContent = avance + '%'
+
+    document.getElementById('detalle-distrito')!.style.display = 'block'
+  }
+
+  const loadColegiosPorDistrito = async () => {
+    const distritoId = (document.getElementById('select-colegio-distrito') as HTMLSelectElement).value
+    const selector = document.getElementById('select-colegio') as HTMLSelectElement
+
+    if (!distritoId) {
+      selector.disabled = true
+      selector.innerHTML = '<option value="">-- Selecciona un distrito primero --</option>'
+      return
+    }
+
+    selector.disabled = false
+
+    const { data: colegiosData } = await supabase
+      .from('recintos')
+      .select('id, nombre')
+      .eq('distrito_id', parseInt(distritoId))
+      .order('nombre', { ascending: true })
+
+    selector.innerHTML =
+      '<option value="">-- Seleccionar Colegio --</option>' +
+      (colegiosData?.map((c: any) => `<option value="${c.id}">${c.nombre}</option>`).join('') || '')
+
+    selector.addEventListener('change', loadDetalleColegio)
+  }
+
+  const loadDetalleColegio = async () => {
+    const colegioId = (document.getElementById('select-colegio') as HTMLSelectElement).value
+    if (!colegioId) {
+      document.getElementById('detalle-colegio')!.style.display = 'none'
+      return
+    }
+
+    // Cargar nombre del colegio
+    const { data: colegioData } = await supabase.from('recintos').select('nombre').eq('id', parseInt(colegioId)).single()
+
+    document.getElementById('nombre-colegio')!.textContent = colegioData?.nombre || 'Colegio'
+
+    // Cargar mesas
+    const { data: mesasData } = await supabase
+      .from('mesas')
+      .select('id, numero_mesa, total_habilitados, estado')
+      .eq('recinto_id', parseInt(colegioId))
+
+    const totalMesas = mesasData?.length || 0
+    const mesasTransmitidas = mesasData?.filter((m: any) => m.estado === 'transmitida').length || 0
+    const avance = totalMesas > 0 ? Math.round((mesasTransmitidas / totalMesas) * 100) : 0
+
+    document.getElementById('mesas-colegio')!.textContent = totalMesas.toString()
+    document.getElementById('mesas-tx-colegio')!.textContent = mesasTransmitidas.toString()
+    document.getElementById('avance-colegio')!.textContent = avance + '%'
+
+    // Llenar tabla de mesas
+    const tabla = document.getElementById('tabla-mesas-colegio')!
+    tabla.innerHTML =
+      mesasData
+        ?.map(
+          (m: any) => `
+      <tr>
+        <td><strong>${m.numero_mesa}</strong></td>
+        <td>${m.total_habilitados}</td>
+        <td><span class="state-badge ${m.estado}">${m.estado}</span></td>
+        <td>--</td>
+      </tr>
+    `
+        )
+        .join('') || ''
+
+    document.getElementById('detalle-colegio')!.style.display = 'block'
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // 2. BIND EVENTOS DE MENÚ
+  // ────────────────────────────────────────────────────────────────
+
+  const menuLinks = document.querySelectorAll<HTMLButtonElement>('.menu-link, .menu-tab')
+  const contentViews = document.querySelectorAll<HTMLDivElement>('.content-view')
+
+  menuLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      const view = link.dataset.view
+      if (!view) return
+
+      // Actualizar vista activa
+      contentViews.forEach((v) => v.classList.remove('is-active'))
+      document.getElementById(`vista-${view}`)?.classList.add('is-active')
+
+      // Actualizar menu activo
+      document.querySelectorAll<HTMLButtonElement>('.menu-link, .menu-tab').forEach((l) => {
+        l.classList.toggle('is-active', l.dataset.view === view)
+      })
+
+      // Actualizar título
+      const titles: Record<string, string> = {
+        resumen: 'Resumen General',
+        distritos: 'Por Distrito',
+        colegios: 'Por Colegio',
+        graficos: 'Gráficos',
+      }
+      document.getElementById('lector-title')!.textContent = titles[view] || 'Resumen General'
+    })
+  })
+
+  // ────────────────────────────────────────────────────────────────
+  // 3. LOGOUT
+  // ────────────────────────────────────────────────────────────────
+
+  const logoutBtn = document.getElementById('logout-btn')
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut()
+      window.localStorage.removeItem('authRole')
+      navigate('/login')
+    })
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // 4. CARGAR DATOS AL INICIAR
+  // ────────────────────────────────────────────────────────────────
+
+  await loadResumenGeneral()
+  await loadDistritos()
+}
+
 function bindNavigationLinks() {
   const navTargets = document.querySelectorAll<HTMLElement>('[data-go]')
   navTargets.forEach((target) => {
     target.addEventListener('click', () => {
       const path = target.dataset.go
-      if (path === '/' || path === '/login' || path === '/panel' || path === '/admin') {
-        navigate(path)
+      if (path === '/' || path === '/login' || path === '/panel' || path === '/admin' || path === '/carrasco') {
+        navigate(path as '/login' | '/' | '/panel' | '/admin' | '/carrasco')
       }
     })
   })
@@ -3006,18 +3536,30 @@ async function renderRoute() {
     }
   }
 
+  // Verificar que solo lector acceda a /carrasco
+  if (route === 'carrasco') {
+    const role = window.localStorage.getItem('authRole')
+    if (role !== 'lector') {
+      alert('⚠️ Acceso denegado: Solo lectores')
+      navigate('/')
+      return
+    }
+  }
+
   if (route === 'home') rootApp.innerHTML = homeTemplate()
   if (route === 'login') rootApp.innerHTML = loginTemplate()
   if (route === 'panel') rootApp.innerHTML = panelTemplate()
   if (route === 'admin') rootApp.innerHTML = adminTemplate()
+  if (route === 'carrasco') rootApp.innerHTML = lectorTemplate()
 
-  document.body.classList.remove('route-home', 'route-login', 'route-panel', 'route-admin')
+  document.body.classList.remove('route-home', 'route-login', 'route-panel', 'route-admin', 'route-carrasco')
   document.body.classList.add(`route-${route}`)
 
   bindNavigationLinks()
   if (route === 'home') bindPublicHome()
   if (route === 'login') bindLogin()
   if (route === 'admin') bindAdmin()
+  if (route === 'carrasco') bindCarrasco()
   if (route === 'panel') {
     const role = window.localStorage.getItem('authRole')
     if (role === 'colegio') {
