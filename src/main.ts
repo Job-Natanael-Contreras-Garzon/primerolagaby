@@ -1,5 +1,9 @@
 import './style.css'
 import { supabase } from './utils/supabase'
+import { cache } from './utils/cache'
+import { excelHandler } from './utils/excel-handler'
+import { chartManager } from './utils/apexcharts-manager'
+import { pagination } from './utils/pagination'
 
 const app = document.querySelector<HTMLDivElement>('#app')
 
@@ -453,12 +457,7 @@ function adminTemplate() {
 
           <article class="card">
             <h3>📈 Gráfica General de Votos</h3>
-            <div class="charts-container">
-              <div class="chart-wrapper">
-                <svg id="admin-pie-chart" width="280" height="280" viewBox="0 0 280 280"></svg>
-              </div>
-              <div id="admin-chart-legend" class="chart-legend"></div>
-            </div>
+            <div id="admin-pie-chart" style="width:100%;height:350px;"></div>
           </article>
 
           <article class="card">
@@ -505,7 +504,14 @@ function adminTemplate() {
 
           <article class="card">
             <h3>📋 Listado de Usuarios</h3>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btn-export-usuarios" class="cta-secondary" style="flex:1;min-width:140px;">📥 Exportar Excel</button>
+              <button type="button" id="btn-import-usuarios" class="cta-secondary" style="flex:1;min-width:140px;">📤 Importar Excel</button>
+              <button type="button" id="btn-plantilla-usuarios" class="cta-secondary" style="flex:1;min-width:140px;">📋 Plantilla</button>
+            </div>
             <div id="admin-usuarios-list" class="users-list" style="margin-top: 16px;"></div>
+            <div id="admin-usuarios-pagination" style="margin-top: 16px;"></div>
+            <input type="file" id="input-import-usuarios" accept=".xlsx,.xls" style="display: none;" />
           </article>
         </section>
 
@@ -526,7 +532,13 @@ function adminTemplate() {
 
           <article class="card">
             <h3>📋 Listado de Distritos</h3>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btn-export-distritos" class="cta-secondary" style="flex:1;min-width:140px;">📥 Exportar Excel</button>
+              <button type="button" id="btn-import-distritos" class="cta-secondary" style="flex:1;min-width:140px;">📤 Importar Excel</button>
+            </div>
             <div id="admin-distritos-list" class="distritos-list" style="margin-top: 16px;"></div>
+            <div id="admin-distritos-pagination" style="margin-top: 16px;"></div>
+            <input type="file" id="input-import-distritos" accept=".xlsx,.xls" style="display: none;" />
           </article>
         </section>
 
@@ -608,6 +620,83 @@ function adminTemplate() {
           </article>
         </section>
       </main>
+    </div>
+
+    <!-- MODAL: EDITAR USUARIO -->
+    <div id="modal-edit-usuario" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+      <article class="card" style="width:90%;max-width:400px;padding:24px;">
+        <h3>Editar Usuario</h3>
+        <form id="form-edit-usuario" class="form-grid" style="margin-top:16px;">
+          <input type="hidden" id="edit-usuario-id" />
+          
+          <label for="edit-usuario-nombre">Nombre</label>
+          <input id="edit-usuario-nombre" type="text" required />
+          
+          <label for="edit-usuario-apellido">Apellido</label>
+          <input id="edit-usuario-apellido" type="text" required />
+          
+          <label for="edit-usuario-email">Email</label>
+          <input id="edit-usuario-email" type="email" required disabled />
+          
+          <label for="edit-usuario-rol">Rol</label>
+          <select id="edit-usuario-rol" required>
+            <option value="veedor">Veedor</option>
+            <option value="supervisor1">Responsable de Colegio</option>
+            <option value="supervisor2">Supervisor de Distrito</option>
+            <option value="admin">Administrador</option>
+          </select>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1;margin-top:12px;">
+            <button type="submit" class="cta">Guardar</button>
+            <button type="button" class="cta-secondary" id="btn-close-edit-usuario">Cancelar</button>
+          </div>
+        </form>
+      </article>
+    </div>
+
+    <!-- MODAL: EDITAR DISTRITO -->
+    <div id="modal-edit-distrito" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+      <article class="card" style="width:90%;max-width:400px;padding:24px;">
+        <h3>Editar Distrito</h3>
+        <form id="form-edit-distrito" class="form-grid" style="margin-top:16px;">
+          <input type="hidden" id="edit-distrito-id" />
+          
+          <label for="edit-distrito-nombre">Nombre</label>
+          <input id="edit-distrito-nombre" type="text" required />
+          
+          <label for="edit-distrito-numero">Número</label>
+          <input id="edit-distrito-numero" type="number" required />
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1;margin-top:12px;">
+            <button type="submit" class="cta">Guardar</button>
+            <button type="button" class="cta-secondary" id="btn-close-edit-distrito">Cancelar</button>
+          </div>
+        </form>
+      </article>
+    </div>
+
+    <!-- MODAL: EDITAR RECINTO -->
+    <div id="modal-edit-recinto" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+      <article class="card" style="width:90%;max-width:400px;padding:24px;">
+        <h3>Editar Recinto</h3>
+        <form id="form-edit-recinto" class="form-grid" style="margin-top:16px;">
+          <input type="hidden" id="edit-recinto-id" />
+          
+          <label for="edit-recinto-nombre">Nombre</label>
+          <input id="edit-recinto-nombre" type="text" required />
+          
+          <label for="edit-recinto-distrito">Distrito</label>
+          <select id="edit-recinto-distrito" required></select>
+          
+          <label for="edit-recinto-direccion">Dirección</label>
+          <input id="edit-recinto-direccion" type="text" />
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1;margin-top:12px;">
+            <button type="submit" class="cta">Guardar</button>
+            <button type="button" class="cta-secondary" id="btn-close-edit-recinto">Cancelar</button>
+          </div>
+        </form>
+      </article>
     </div>
   `
 }
@@ -2259,68 +2348,23 @@ async function bindAdmin() {
       `
     }
 
-    // Cargar gráfica de votos
-    const pieChartSvg = document.querySelector<SVGElement>('#admin-pie-chart')
-    const chartLegend = document.querySelector<HTMLElement>('#admin-chart-legend')
-
-    const drawAdminPieChart = (datos: any[]) => {
-      if (!pieChartSvg || !chartLegend) return
-      pieChartSvg.innerHTML = ''
-      chartLegend.innerHTML = ''
-
-      const total = datos.reduce((sum, d) => sum + d.total, 0)
-      if (total === 0) {
-        pieChartSvg.innerHTML = '<text x="140" y="140" text-anchor="middle" fill="#999">Sin datos</text>'
-        return
-      }
-
-      let currentAngle = -90
-      const radius = 80
-      const centerX = 140
-      const centerY = 140
-
-      datos.forEach((d) => {
-        const sliceAngle = (d.total / total) * 360
-        const startRad = (currentAngle * Math.PI) / 180
-        const endRad = ((currentAngle + sliceAngle) * Math.PI) / 180
-
-        const x1 = centerX + radius * Math.cos(startRad)
-        const y1 = centerY + radius * Math.sin(startRad)
-        const x2 = centerX + radius * Math.cos(endRad)
-        const y2 = centerY + radius * Math.sin(endRad)
-
-        const largeArc = sliceAngle > 180 ? 1 : 0
-        const path = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`
-
-        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-        pathEl.setAttribute('d', path)
-        pathEl.setAttribute('fill', d.color)
-        pathEl.setAttribute('stroke', 'white')
-        pathEl.setAttribute('stroke-width', '2')
-        pieChartSvg?.appendChild(pathEl)
-
-        chartLegend!.innerHTML += `<div style="margin:8px 0;font-size:13px;">
-          <span style="display:inline-block;width:12px;height:12px;background:${d.color};margin-right:6px;"></span>
-          <strong>${d.sigla}</strong> ${d.total} votos (${((d.total / total) * 100).toFixed(1)}%)
-        </div>`
-
-        currentAngle += sliceAngle
-      })
-    }
-
+    // Cargar gráfica de votos con ApexCharts
     const { data: monitorData, error: monitorErr } = await supabase
       .from('vista_monitoreo')
       .select('partido_sigla, partido_color, total_votos')
       .eq('tipo_cargo', 'alcalde')
       .order('total_votos', { ascending: false })
 
-    if (!monitorErr && monitorData) {
+    if (!monitorErr && monitorData && monitorData.length > 0) {
       const chartData = monitorData.map((row: any) => ({
         sigla: row.partido_sigla,
         color: row.partido_color || '#999',
         total: row.total_votos,
       }))
-      drawAdminPieChart(chartData)
+      chartManager.createPieChart('admin-pie-chart', chartData, '📊 Votos por Partido - Alcalde')
+    } else {
+      const chartContainer = document.querySelector('#admin-pie-chart')
+      if (chartContainer) chartContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">Sin datos de votos</div>'
     }
 
     // Cargar incidencias pendientes
@@ -2354,27 +2398,49 @@ async function bindAdmin() {
   }
 
   // ─── USUARIOS ─────────────────────────────────────────────────────────────
+  let adminUsuariosAllData: any[] = []
+  let adminUsuariosCurrentPage = 1
+
   const loadAdminUsuarios = async () => {
     const usuariosList = document.querySelector<HTMLElement>('#admin-usuarios-list')
+    const paginationContainer = document.querySelector<HTMLElement>('#admin-usuarios-pagination')
     if (!usuariosList) return
 
-    const { data: usuariosData, error } = await supabase
-      .from('usuarios')
-      .select('id, nombre, apellido, email, rol, activo, distritos(nombre)')
-      .eq('activo', true)
-      .order('nombre', { ascending: true })
+    // Intentar obtener datos del caché
+    let usuariosData = cache.get<any[]>('admin_usuarios')
 
-    if (error || !usuariosData) {
-      usuariosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando usuarios</p>'
-      return
+    if (!usuariosData) {
+      // Si no está en caché, obtener de Supabase
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nombre, apellido, email, rol, activo, distritos(nombre)')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+
+      if (error || !data) {
+        usuariosList.innerHTML = '<p class="empty" style="color:#c00">Error cargando usuarios</p>'
+        return
+      }
+
+      usuariosData = data
+      // Guardar en caché por 5 minutos
+      cache.set('admin_usuarios', usuariosData, 5)
     }
+
+    adminUsuariosAllData = usuariosData
 
     if (usuariosData.length === 0) {
       usuariosList.innerHTML = '<p class="empty">No hay usuarios registrados</p>'
+      if (paginationContainer) paginationContainer.innerHTML = ''
       return
     }
 
-    usuariosList.innerHTML = usuariosData
+    // Aplicar paginación
+    const pageSize = 100
+    const state = pagination.calculate(usuariosData.length, adminUsuariosCurrentPage, pageSize)
+    const pagedData = pagination.getPageItems(usuariosData, adminUsuariosCurrentPage, pageSize)
+
+    usuariosList.innerHTML = pagedData
       .map(
         (u: any) => `<div class="mesa-item" style="justify-content:space-between;align-items:center;">
         <div class="mesa-info">
@@ -2382,17 +2448,55 @@ async function bindAdmin() {
           <span>${u.email}</span>
           <small style="color:#666;text-transform:capitalize;">${u.rol}${u.distritos ? ` • ${u.distritos.nombre}` : ''}</small>
         </div>
-        <button class="btn-delete-user" data-id="${u.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Desactivar</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-edit-user" data-id="${u.id}" style="background:#007bff;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Editar</button>
+          <button class="btn-delete-user" data-id="${u.id}" style="background:#dc3545;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;">Desactivar</button>
+        </div>
       </div>`
       )
       .join('')
 
+    // Agregar paginación
+    if (paginationContainer) {
+      const paginationHTML = pagination.generatePaginationHTML(state)
+      paginationContainer.innerHTML = paginationHTML
+      pagination.attachPaginationEvents(`admin-usuarios-pagination`, (page) => {
+        adminUsuariosCurrentPage = page
+        loadAdminUsuarios()
+      })
+    }
+
+    // Event listeners
     usuariosList.querySelectorAll<HTMLButtonElement>('.btn-delete-user').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('¿Desactivar este usuario?')) return
-        const { error } = await supabase.from('usuarios').update({ activo: false }).eq('id', parseInt(btn.dataset.id as string))
-        if (error) alert('Error')
-        else loadAdminUsuarios()
+        const userId = parseInt(btn.dataset.id as string)
+        const { error } = await supabase.from('usuarios').update({ activo: false }).eq('id', userId)
+        if (error) {
+          alert('Error al desactivar')
+        } else {
+          cache.remove('admin_usuarios')
+          loadAdminUsuarios()
+        }
+      })
+    })
+
+    usuariosList.querySelectorAll<HTMLButtonElement>('.btn-edit-user').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const userId = parseInt(btn.dataset.id as string)
+        const user = adminUsuariosAllData.find((u) => u.id === userId)
+        if (!user) return
+
+        const modal = document.querySelector<HTMLElement>('#modal-edit-usuario')
+        if (!modal) return
+
+        document.querySelector<HTMLInputElement>('#edit-usuario-id')!.value = user.id
+        document.querySelector<HTMLInputElement>('#edit-usuario-nombre')!.value = user.nombre
+        document.querySelector<HTMLInputElement>('#edit-usuario-apellido')!.value = user.apellido
+        document.querySelector<HTMLInputElement>('#edit-usuario-email')!.value = user.email
+        document.querySelector<HTMLSelectElement>('#edit-usuario-rol')!.value = user.rol
+
+        modal.style.display = 'flex'
       })
     })
   }
@@ -2754,6 +2858,94 @@ async function bindAdmin() {
       alert('✅ Recinto creado exitosamente')
       formRecinto.reset()
       loadAdminRecintos()
+    })
+  }
+
+  // ─── HANDLERS DE EXPORTAR/IMPORTAR EXCEL ────────────────────────────────
+  
+  // Usuarios
+  const btnExportUsuarios = document.querySelector<HTMLButtonElement>('#btn-export-usuarios')
+  const btnImportUsuarios = document.querySelector<HTMLButtonElement>('#btn-import-usuarios')
+  const btnPlantillaUsuarios = document.querySelector<HTMLButtonElement>('#btn-plantilla-usuarios')
+  const inputImportUsuarios = document.querySelector<HTMLInputElement>('#input-import-usuarios')
+
+  if (btnExportUsuarios) {
+    btnExportUsuarios.addEventListener('click', () => {
+      excelHandler.exportUsuarios(adminUsuariosAllData)
+    })
+  }
+
+  if (btnPlantillaUsuarios) {
+    btnPlantillaUsuarios.addEventListener('click', () => {
+      excelHandler.descargarPlantillaUsuarios()
+    })
+  }
+
+  if (btnImportUsuarios && inputImportUsuarios) {
+    btnImportUsuarios.addEventListener('click', () => inputImportUsuarios.click())
+    inputImportUsuarios.addEventListener('change', async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      try {
+        const data = await excelHandler.leerArchivo(file)
+        // TODO: Procesar datos e importar a Supabase
+        alert(`Se procesarán ${data.length} filas`)
+      } catch (err) {
+        alert('Error al leer archivo: ' + err)
+      }
+    })
+  }
+
+  // Distritos
+  const btnExportDistritos = document.querySelector<HTMLButtonElement>('#btn-export-distritos')
+  if (btnExportDistritos) {
+    btnExportDistritos.addEventListener('click', () => {
+      // TODO: Usar adminDistritosAllData cuando esté disponible
+      alert('Descargar Excel de distritos')
+    })
+  }
+
+  // Modal de editar usuario
+  const modalEditUsuario = document.querySelector<HTMLElement>('#modal-edit-usuario')
+  const formEditUsuario = document.querySelector<HTMLFormElement>('#form-edit-usuario')
+  const btnCloseEditUsuario = document.querySelector<HTMLButtonElement>('#btn-close-edit-usuario')
+
+  if (btnCloseEditUsuario) {
+    btnCloseEditUsuario.addEventListener('click', () => {
+      if (modalEditUsuario) modalEditUsuario.style.display = 'none'
+    })
+  }
+
+  if (formEditUsuario) {
+    formEditUsuario.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const userId = parseInt(document.querySelector<HTMLInputElement>('#edit-usuario-id')!.value)
+      const nombre = document.querySelector<HTMLInputElement>('#edit-usuario-nombre')!.value
+      const apellido = document.querySelector<HTMLInputElement>('#edit-usuario-apellido')!.value
+      const rol = document.querySelector<HTMLSelectElement>('#edit-usuario-rol')!.value
+
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ nombre, apellido, rol })
+        .eq('id', userId)
+
+      if (error) {
+        alert('Error al actualizar: ' + error.message)
+      } else {
+        alert('✅ Usuario actualizado')
+        if (modalEditUsuario) modalEditUsuario.style.display = 'none'
+        cache.remove('admin_usuarios')
+        loadAdminUsuarios()
+      }
+    })
+  }
+
+  // Cerrar modal al hacer click fuera
+  if (modalEditUsuario) {
+    modalEditUsuario.addEventListener('click', (e) => {
+      if (e.target === modalEditUsuario) {
+        modalEditUsuario.style.display = 'none'
+      }
     })
   }
 

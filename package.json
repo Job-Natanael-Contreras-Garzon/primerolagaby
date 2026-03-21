@@ -13,6 +13,8 @@
     "vite": "^8.0.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.99.3"
+    "@supabase/supabase-js": "^2.99.3",
+    "apexcharts": "^5.10.4",
+    "xlsx": "^0.18.5"
   }
 }
