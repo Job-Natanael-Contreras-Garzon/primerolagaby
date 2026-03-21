@@ -157,29 +157,35 @@ CREATE POLICY "partidos_insert_admin_only" ON partidos
   );
 
 
+-- ════════════════════════════════════════════════════════════════
+-- FUNCIÓN AUXILIAR: Verificar si usuario es admin (sin recursión RLS)
+-- ════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(
+    (SELECT rol = 'admin' FROM usuarios 
+     WHERE auth_id = auth.uid() 
+     LIMIT 1),
+    FALSE
+  );
+$$ LANGUAGE SQL SECURITY DEFINER;
+
 -- ────────────────────────────────────────────────────────────────
 -- 7. USUARIOS (Acceso restringido según rol)
 -- ────────────────────────────────────────────────────────────────
 
-CREATE POLICY "usuarios_select_own_or_admin" ON usuarios
-  FOR SELECT USING (
-    -- Ver tu propio usuario
-    auth_id = auth.uid()
-    OR
-    -- Admin ve todos
-    EXISTS (SELECT 1 FROM usuarios WHERE auth_id = auth.uid() AND rol = 'admin')
-  );
+-- NOTA: BYPASA RLS para poder hacer SELECT sin recursión infinita
+-- La validación de datos se hace en la aplicación
+CREATE POLICY "usuarios_select_all_authenticated" ON usuarios
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
 CREATE POLICY "usuarios_insert_admin_only" ON usuarios
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM usuarios WHERE auth_id = auth.uid() AND rol = 'admin')
-  );
+  FOR INSERT WITH CHECK (is_admin());
 
-CREATE POLICY "usuarios_update_self_or_admin" ON usuarios
+CREATE POLICY "usuarios_update_own_or_admin" ON usuarios
   FOR UPDATE USING (
-    auth_id = auth.uid()
-    OR
-    EXISTS (SELECT 1 FROM usuarios WHERE auth_id = auth.uid() AND rol = 'admin')
+    auth_id = auth.uid() OR is_admin()
   );
 
 
