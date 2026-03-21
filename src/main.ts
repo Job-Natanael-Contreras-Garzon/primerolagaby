@@ -625,7 +625,7 @@ function adminTemplate() {
     </div>
 
     <!-- MODAL: EDITAR USUARIO -->
-    <div id="modal-edit-usuario" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div id="modal-edit-usuario" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
       <article class="card" style="width:90%;max-width:400px;padding:24px;">
         <h3>Editar Usuario</h3>
         <form id="form-edit-usuario" class="form-grid" style="margin-top:16px;">
@@ -678,7 +678,7 @@ function adminTemplate() {
     </div>
 
     <!-- MODAL: EDITAR RECINTO -->
-    <div id="modal-edit-recinto" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div id="modal-edit-recinto" class="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
       <article class="card" style="width:90%;max-width:400px;padding:24px;">
         <h3>Editar Recinto</h3>
         <form id="form-edit-recinto" class="form-grid" style="margin-top:16px;">
@@ -2652,7 +2652,7 @@ async function bindAdmin() {
     const { data: monitorData, error: monitorErr } = await supabase
       .from('vista_monitoreo')
       .select('partido_sigla, partido_color, total_votos')
-      .eq('tipo_cargo', 'alcalde')
+      // Removido: .eq('tipo_cargo', 'alcalde')  - Causa error 400
       .order('total_votos', { ascending: false })
 
     if (!monitorErr && monitorData && monitorData.length > 0) {
@@ -2661,7 +2661,7 @@ async function bindAdmin() {
         color: row.partido_color || '#999',
         total: row.total_votos,
       }))
-      chartManager.createPieChart('admin-pie-chart', chartData, '📊 Votos por Partido - Alcalde')
+      chartManager.createPieChart('admin-pie-chart', chartData, '📊 Votos por Partido')
     } else {
       const chartContainer = document.querySelector('#admin-pie-chart')
       if (chartContainer) chartContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">Sin datos de votos</div>'
@@ -2788,7 +2788,7 @@ async function bindAdmin() {
         if (!user) return
 
         const modal = document.querySelector<HTMLElement>('#modal-edit-usuario')
-        if (!modal) return
+      if (!modal) return
 
         document.querySelector<HTMLInputElement>('#edit-usuario-id')!.value = user.id
         document.querySelector<HTMLInputElement>('#edit-usuario-nombre')!.value = user.nombre
@@ -2796,7 +2796,7 @@ async function bindAdmin() {
         document.querySelector<HTMLInputElement>('#edit-usuario-email')!.value = user.email
         document.querySelector<HTMLSelectElement>('#edit-usuario-rol')!.value = user.rol
 
-        modal.style.display = 'flex'
+        modal.style.display = 'flex'  // ← Usa flex para centrar el contenido
       })
     })
   }
