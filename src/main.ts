@@ -19,13 +19,13 @@ type RoleId = 'veedor' | 'distrito' | 'colegio' | 'admin' | 'lector'
 // SHARED GLOBAL STATE (Cargado una sola vez al iniciar)
 // ═══════════════════════════════════════════════════════════════════════════
 
-let colegiosMock: { nombre: string; distrito: string; recinto_id?: number }[] = []
-let partidos: { id: number; nombre: string; sigla: string; color: string }[] = []
-let cargos: { id: number; nombre: string }[] = [
+let colegiosData: { nombre: string; distrito: string; recinto_id?: number }[] = []
+let partidosData: { id: number; nombre: string; sigla: string; color: string }[] = []
+let cargosData: { id: number; nombre: string }[] = [
   { id: 1, nombre: 'Alcalde' },
   { id: 2, nombre: 'Concejal' },
 ]
-let mesas: { id: number; numero: string; colegio: string; distrito: string; estado: string }[] = []
+let mesasData: { id: number; numero: string; colegio: string; distrito: string; estado: string }[] = []
 
 async function loadCatalogos() {
   try {
@@ -35,7 +35,7 @@ async function loadCatalogos() {
       .eq('activo', true)
 
     if (recintos) {
-      colegiosMock = recintos.map((r: any) => ({
+      colegiosData = recintos.map((r: any) => ({
         nombre: r.nombre,
         distrito: r.distritos?.nombre ?? 'Sin distrito',
         recinto_id: r.id,
@@ -48,7 +48,7 @@ async function loadCatalogos() {
       .eq('activo', true)
 
     if (partData) {
-      partidos = partData.map((p: any) => ({
+      partidosData = partData.map((p: any) => ({
         id: p.id,
         nombre: p.nombre,
         sigla: p.sigla,
@@ -56,13 +56,13 @@ async function loadCatalogos() {
       }))
     }
 
-    const { data: mesasData } = await supabase
+    const { data: mesasDataResponse } = await supabase
       .from('mesas')
       .select('id, numero_mesa, estado, recintos(nombre, distritos(nombre))')
       .eq('activo', true)
 
-    if (mesasData) {
-      mesas = mesasData.map((m: any) => ({
+    if (mesasDataResponse) {
+      mesasData = mesasDataResponse.map((m: any) => ({
         id: m.id,
         numero: m.numero_mesa,
         colegio: m.recintos?.nombre ?? 'Sin recinto',
@@ -76,10 +76,10 @@ async function loadCatalogos() {
     console.warn('⚠️ Supabase no disponible, usando datos locales:', err)
   } finally {
     // SIEMPRE actualizar datos globales en window, aunque sean vacíos o del fallback
-    (window as any).colegiosMock = colegiosMock
-    (window as any).partidos = partidos
-    (window as any).cargos = cargos
-    (window as any).mesas = mesas
+    ;(window as any).colegiosMock = colegiosData
+    ;(window as any).partidos = partidosData
+    ;(window as any).cargos = cargosData
+    ;(window as any).mesas = mesasData
   }
 }
 
@@ -184,10 +184,10 @@ async function renderRoute() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Inicializar datos globales en window INMEDIATAMENTE
-;(window as any).colegiosMock = colegiosMock
-;(window as any).partidos = partidos
-;(window as any).cargos = cargos
-;(window as any).mesas = mesas
+;(window as any).colegiosMock = colegiosData
+;(window as any).partidos = partidosData
+;(window as any).cargos = cargosData
+;(window as any).mesas = mesasData
 ;(window as any).supabase = supabase
 ;(window as any).navigate = navigate
 ;(window as any).renderRoute = renderRoute
