@@ -182,34 +182,58 @@ async function renderRoute() {
 // EVENT LISTENERS & INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Navegación con botones data-go
-document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement
-  const btn = target.closest<HTMLButtonElement>('[data-go]')
-  if (btn) {
-    const path = btn.dataset.go as any
-    navigate(path)
-  }
-})
+function setupEventListeners() {
+  // Navegación con botones data-go
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    const btn = target.closest<HTMLButtonElement>('[data-go]')
+    if (btn) {
+      const path = btn.dataset.go as any
+      navigate(path)
+    }
+  })
 
-// Navigation con popstate (botón atrás del navegador)
-window.addEventListener('popstate', renderRoute as any)
+  // Navigation con popstate (botón atrás del navegador)
+  window.addEventListener('popstate', () => {
+    renderRoute()
+  })
+}
 
 // Al cargar, si no está en login y no está logueado, ir a login
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadCatalogos()
-  const route = getRoute()
-  if (route !== 'login') {
-    const loggedIn = await isLoggedIn()
-    if (!loggedIn) {
-      navigate('/login')
-      return
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', async () => {
+    setupEventListeners()
+    await loadCatalogos()
+    const route = getRoute()
+    if (route !== 'login') {
+      const loggedIn = await isLoggedIn()
+      if (!loggedIn) {
+        navigate('/login')
+        return
+      }
     }
-  }
-  renderRoute()
-})
+    renderRoute()
+  })
+} else {
+  // Si el DOM ya está listo (ej: en hot reload)
+  setupEventListeners()
+  loadCatalogos().then(() => {
+    const route = getRoute()
+    if (route !== 'login') {
+      isLoggedIn().then(loggedIn => {
+        if (!loggedIn) {
+          navigate('/login')
+        } else {
+          renderRoute()
+        }
+      })
+    } else {
+      renderRoute()
+    }
+  })
+}
 
 // Export globals para debugging
-(window as any).supabase = supabase
-(window as any).navigate = navigate
-(window as any).renderRoute = renderRoute
+;(window as any).supabase = supabase
+;(window as any).navigate = navigate
+;(window as any).renderRoute = renderRoute

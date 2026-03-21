@@ -38,7 +38,7 @@ export async function bindVeedor(): Promise<void> {
   // Variables de estado
   let fotoCapturada = false
   let formularioListo = false
-  const cargoVotes: Record<number, number> = {}
+  const cargoVotes: Record<number, Record<number, number>> = {} // { cargoId: { candidatoId: votos } }
 
   // ============================================
   // 1. HELPER: Mostrar sección de datos
@@ -108,11 +108,13 @@ export async function bindVeedor(): Promise<void> {
     const mesa = mesaInput?.value?.trim() || ''
     const foto = Boolean(fotoInput?.value)
     
-    // Verificar candidatos
+    // Verificar candidatos - cada cargo debe tener al menos 1 voto
     let todosCargosCompletos = true
     
     for (const cargo of cargos) {
-      if ((cargoVotes[cargo.id] || 0) === 0) {
+      const votos = cargoVotes[cargo.id] || {}
+      const total = Object.values(votos).reduce((sum, v) => sum + v, 0)
+      if (total === 0) {
         todosCargosCompletos = false
         break
       }
@@ -239,10 +241,27 @@ export async function bindVeedor(): Promise<void> {
     
     cargoTabs.innerHTML = html
 
-    // Evento para cambiar cargos
+    // Evento para cambiar cargos - GUARDAR antes de cambiar
     const tabs = document.querySelectorAll<HTMLButtonElement>('.cargo-tab')
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
+        // GUARDAR datos del cargo actual
+        const currentActive = document.querySelector<HTMLElement>('.cargo-tab.is-active')
+        if (currentActive) {
+          const currentCargoId = parseInt(currentActive.dataset.cargo as string)
+          if (!cargoVotes[currentCargoId]) {
+            cargoVotes[currentCargoId] = {}
+          }
+          
+          const currentInputs = document.querySelectorAll<HTMLInputElement>('.candidatos-grid input[type="number"]')
+          currentInputs.forEach((inp: any) => {
+            const candidatoId = parseInt(inp.dataset.candidato) || parseInt(inp.dataset.tipo)
+            const valor = parseInt(inp.value) || 0
+            cargoVotes[currentCargoId][candidatoId] = valor
+          })
+        }
+        
+        // CAMBIAR a nuevo cargo
         tabs.forEach(t => t.classList.remove('is-active'))
         tab.classList.add('is-active')
         const cargoId = parseInt(tab.dataset.cargo as string)
@@ -268,7 +287,7 @@ export async function bindVeedor(): Promise<void> {
       .map(c => {
         const partido = partidos.find(p => p.id === c.partido_id)
         return `<label class="candidato-item">
-          <input type="number" min="0" value="0" data-candidato="${c.id}" />
+          <input type="number" min="0" data-candidato="${c.id}" />
           <span>${c.nombre}</span>
           <span class="partido-badge" style="background-color: ${partido?.color || '#ccc'}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">${partido?.sigla}</span>
         </label>`
@@ -278,12 +297,12 @@ export async function bindVeedor(): Promise<void> {
     const blankHtml = `
       <div style="border-top: 2px solid #f0cce6; padding-top: 16px; margin-top: 16px;">
         <label class="candidato-item">
-          <input type="number" min="0" value="0" data-tipo="nulos" />
+          <input type="number" min="0" data-tipo="nulos" />
           <span>Votos Nulos</span>
           <span class="partido-badge" style="background-color: #999999; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">NULOS</span>
         </label>
         <label class="candidato-item">
-          <input type="number" min="0" value="0" data-tipo="blancos" />
+          <input type="number" min="0" data-tipo="blancos" />
           <span>Votos en Blanco</span>
           <span class="partido-badge" style="background-color: #cccccc; color: #333; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">BLANCOS</span>
         </label>
@@ -292,6 +311,18 @@ export async function bindVeedor(): Promise<void> {
 
     candidatosGrid.innerHTML = `<div class="candidatos-list">${candidatosHtml}${blankHtml}</div>`
 
+    // RESTAURAR valores guardados para este cargo
+    if (cargoVotes[cargoId]) {
+      const inputs = document.querySelectorAll<HTMLInputElement>('.candidatos-grid input[type="number"]')
+      inputs.forEach((inp: any) => {
+        const candidatoId = inp.dataset.candidato ? parseInt(inp.dataset.candidato) : inp.dataset.tipo
+        const valor = cargoVotes[cargoId]?.[candidatoId]
+        if (valor !== undefined && valor > 0) {
+          inp.value = valor.toString()
+        }
+      })
+    }
+
     // Event listeners en inputs
     const allInputs = document.querySelectorAll<HTMLInputElement>('.candidatos-grid input[type="number"]')
     allInputs.forEach(input => {
@@ -299,11 +330,16 @@ export async function bindVeedor(): Promise<void> {
         const activeTab = document.querySelector<HTMLElement>('.cargo-tab.is-active')
         if (activeTab) {
           const currentCargoId = parseInt(activeTab.dataset.cargo as string)
-          const currentInputs = document.querySelectorAll<HTMLInputElement>('.candidatos-grid input[type="number"]')
-          const total = Array.from(currentInputs).reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0)
-          cargoVotes[currentCargoId] = total
+          if (!cargoVotes[currentCargoId]) {
+            cargoVotes[currentCargoId] = {}
+          }
+          
+          const candidatoId = (input as any).dataset.candidato ? parseInt((input as any).dataset.candidato) : (input as any).dataset.tipo
+          const valor = parseInt(input.value) || 0
+          cargoVotes[currentCargoId][candidatoId] = valor
+          
+          checkAllReady()
         }
-        checkAllReady()
       })
     })
   }
