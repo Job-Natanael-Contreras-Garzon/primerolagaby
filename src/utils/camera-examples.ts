@@ -4,8 +4,8 @@
  * Copía y adapta el código según tus necesidades
  */
 
-import { cameraUploadManager } from './utils/camera-upload'
-import { cameraManager } from './utils/camera'
+import { cameraUploadManager } from './camera-upload'
+import { cameraManager } from './camera'
 
 /**
  * Ejemplo 1: Añadir sección de cámara a un formulario
