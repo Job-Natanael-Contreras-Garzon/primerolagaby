@@ -146,7 +146,6 @@ class CameraUploadManager {
 
     // Estado
     let capturedBlob: Blob | null = null
-    let isCapturing = false
 
     // Event listeners
     startButton.addEventListener('click', async () => {
@@ -202,7 +201,6 @@ class CameraUploadManager {
 
     captureButton.addEventListener('click', async () => {
       try {
-        isCapturing = true
         captureButton.disabled = true
         captureButton.textContent = '⏳ Capturando...'
 
@@ -243,7 +241,6 @@ class CameraUploadManager {
               captureButton.disabled = false
               captureButton.textContent = '📸 Capturar Foto'
               retakeButton.remove()
-              isCapturing = false
             })
             buttonContainer.appendChild(retakeButton)
           }
@@ -277,7 +274,7 @@ class CameraUploadManager {
             videoElement.style.display = 'block'
             uploadButton.style.display = 'none'
             capturedBlob = null
-            isCapturing = false
+
           }, 2000)
         } else {
           uploadButton.textContent = '❌ Error'
@@ -334,7 +331,7 @@ class CameraUploadManager {
       const timestamp = Date.now()
       const filename = `${user.id}/${timestamp}-${Math.random().toString(36).substring(7)}.jpg`
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(bucket)
         .upload(filename, blob, {
           contentType: 'image/jpeg',

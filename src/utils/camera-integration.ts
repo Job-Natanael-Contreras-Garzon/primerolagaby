@@ -34,7 +34,7 @@ export async function initializeCameraModule() {
  * const section = await createVeeedorCameraSection()
  * document.querySelector('#container').appendChild(section)
  */
-export async function createVeeedorCameraSection(options?: { 
+export async function createVeeedorCameraSection(_options?: { 
   enableAlternateCamera?: boolean 
 }): Promise<HTMLElement> {
   const { cameraUploadManager } = await import('./camera-upload')

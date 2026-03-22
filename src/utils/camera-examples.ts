@@ -77,7 +77,6 @@ export function createFormWithCamera() {
   })
 
   // Guardar URL cuando se suba foto
-  const originalUploadClick = cameraUI.uploadButton.onclick
   cameraUI.uploadButton.addEventListener('click', async () => {
     // El upload se hace automáticamente desde camera-upload.ts
     // Solo necesitamos guardar la URL cuando esté lista
