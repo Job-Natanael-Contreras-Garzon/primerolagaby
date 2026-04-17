@@ -53,7 +53,7 @@ p {
 .shell {
   max-width: 1280px;
   margin: 0 auto;
-  min-height: calc(100svh - 40px);
+  height: calc(100svh - 40px); /* Changed from min-height to fixed height for scrolling */
   background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.8);
@@ -74,6 +74,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 26px;
+  overflow-y: auto;
 }
 
 .eyebrow {
@@ -145,6 +146,8 @@ p {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 22px;
+  overflow-y: auto; /* Enable scroll on the right side */
+  height: 100%;
 }
 
 .topbar {
